@@ -53,7 +53,6 @@ export default class UserController implements Routable
         this.router.get('/getByUsername/:username', this.getByUsername);
         this.router.put('/edit', upload.single('media'), this.edit);
         this.router.delete('/delete', this.delete);
-
     }
 
     getCookie(name: string, cookies: string[])
