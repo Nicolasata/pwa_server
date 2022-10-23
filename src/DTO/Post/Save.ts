@@ -5,10 +5,5 @@ export default class Save
     @IsDefined()
     @IsString()
     @IsNotEmpty()
-    title: string;
-
-    @IsDefined()
-    @IsString()
-    @IsNotEmpty()
     description: string;
 }

@@ -50,7 +50,7 @@ export default class UserController implements Routable
         this.router.post('/unsubscribe', this.unsubscribe);
         this.router.get('/fingerprint', this.fingerprint);
         this.router.get('/getCurrentUser', this.getCurrentUser);
-        this.router.get('/getByUsername/:username', this.getByUsername);
+        this.router.get('/getWebProfile/:username', this.getWebProfile);
         this.router.put('/edit', upload.single('media'), this.edit);
         this.router.delete('/delete', this.delete);
     }
@@ -150,6 +150,7 @@ export default class UserController implements Routable
             const newUser = new User({
                 username: data.username,
                 email: data.email,
+                verified: true,
                 password: await hash(data.password, await genSalt(parseInt(process.env.BCRYPT_SALT_ROUNDS)))
             });
 
@@ -188,7 +189,7 @@ export default class UserController implements Routable
                 throw(new ServerException(errors, 400));
             }
 
-            const user = await User.findById(request.session.user.id).populate('avatar');
+            const user = await User.findById(request.session.user.id).populate('media');
 
             if (!user){
                 throw(new Error(`user ${request.session.user.id} does not exist`));
@@ -214,18 +215,18 @@ export default class UserController implements Routable
                     throw(new Error('Failed to save Media'));
                 }
 
-                data.avatar = newMedia._id;
+                data.media = newMedia._id;
 
-                if (user.avatar){
+                if (user.media){
 
                     //@ts-ignore
-                    if (existsSync(user.avatar.location)){
+                    if (existsSync(user.media.location)){
                         //@ts-ignore
-                        unlinkSync(user.avatar.location);
+                        unlinkSync(user.media.location);
                     }
 
-                    if (!await Media.deleteOne({_id: user.avatar._id})){
-                        throw(new Error(`Failed to deleteOne Media with _id ${user.avatar._id}`));
+                    if (!await Media.deleteOne({_id: user.media._id})){
+                        throw(new Error(`Failed to deleteOne Media with _id ${user.media._id}`));
                     }
                 }
             }
@@ -319,7 +320,7 @@ export default class UserController implements Routable
                 }},
                 {$lookup: {
                     from: 'medias',
-                    let: {'mediaId': '$avatar'},
+                    let: {'mediaId': '$media'},
                     pipeline: [
                         {$match: {
                             $expr: {
@@ -331,19 +332,20 @@ export default class UserController implements Routable
                             location: 1
                         }}
                     ],
-                    as: 'avatar'
+                    as: 'media'
                 }},
                 {
                     $unwind: {
-                        path : '$avatar',
+                        path : '$media',
                         preserveNullAndEmptyArrays: true,
                     }
                 },
                 {$project: {
                     _id: 1,
-                    avatar: {
-                        $ifNull: ['$avatar', null]
+                    media: {
+                        $ifNull: ['$media', null]
                     },
+                    following: 1,
                     posts: 1,
                     subscriptions: 1
                 }}
@@ -358,15 +360,15 @@ export default class UserController implements Routable
                 const subscriptionIds = [];
 
                 //@ts-ignore
-                if (user.avatar){
+                if (user.media){
 
                     //@ts-ignore
-                    if (existsSync(user.avatar.location)){
+                    if (existsSync(user.media.location)){
                         //@ts-ignore
-                        unlinkSync(user.avatar.location);
+                        unlinkSync(user.media.location);
                     }
                     //@ts-ignore
-                    mediaIds.push(user.avatar._id);
+                    mediaIds.push(user.media._id);
                 }
 
                 //@ts-ignore
@@ -403,6 +405,12 @@ export default class UserController implements Routable
                     if (!await Subscription.deleteMany({_id: subscriptionIds})){
                         throw(new Error(`Failed to deleteMany Subscription with _ids ${subscriptionIds.join()}`));
                     }
+                }
+
+                //@ts-ignore
+                if (!await User.updateMany({_id: user.following}, {$pull: {followers: user._id}})){
+                    //@ts-ignore
+                    throw(new Error(`Failed to updateMany Users with _ids ${user.following.join()}`));
                 }
 
                 if (!await User.updateOne({_id: request.session.user.id}, {$set: {deletedAt: new Date}})){
@@ -480,11 +488,11 @@ export default class UserController implements Routable
         }
     }
 
-    getByUsername = async (request: express.Request, response: express.Response) =>
+    getWebProfile = async (request: express.Request, response: express.Response) =>
     {
         try {
 
-            const user = await User.aggregate([
+            let webProfile = await User.aggregate([
                 {$match: {
                     username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
                 }},
@@ -522,19 +530,19 @@ export default class UserController implements Routable
                         },
                         {$project: {
                             _id: 1,
-                            title: 1,
                             description: 1,
                             media: {
                                 $ifNull: ['$media', null]
                             },
-                            createdAt: 1
+                            createdAt: 1,
+                            likes: 1
                         }}
                     ],
                     as: 'posts'
                 }},
                 {$lookup: {
                     from: 'medias',
-                    let: {'mediaId': '$avatar'},
+                    let: {'mediaId': '$media'},
                     pipeline: [
                         {$match: {
                             $expr: {
@@ -547,11 +555,11 @@ export default class UserController implements Routable
                             url: 1
                         }}
                     ],
-                    as: 'avatar'
+                    as: 'media'
                 }},
                 {
                     $unwind: {
-                        path : '$avatar',
+                        path : '$media',
                         preserveNullAndEmptyArrays: true,
                     }
                 },
@@ -559,18 +567,35 @@ export default class UserController implements Routable
                     _id: 1,
                     username: 1,
                     description: 1,
-                    avatar: {
-                        $ifNull: ['$avatar', null]
+                    followers: 1,
+                    following: 1,
+                    media: {
+                        $ifNull: ['$media', null]
                     },
                     posts: 1,
                     createdAt: 1
                 }}
             ]);
 
+            if (!webProfile?.length){
+                throw(new ServerException([`user ${request.params.username} does not exist`], 400));
+            }
+
+            webProfile = webProfile[0];
+
+            if (request.session?.user?.id){
+                //@ts-ignore
+                webProfile.posts = webProfile.posts.map((post) =>{
+                    //@ts-ignore
+                    post.liked = post.likes.findIndex((like: any) => like.equals(request.session.user.id)) !== -1
+                    return (post);
+                });
+            }
+
             response
             .status(200)
             .send({
-                user: user?.length ? user[0] : null
+                webProfile: webProfile
             })
 
         } catch(error){
@@ -597,7 +622,7 @@ export default class UserController implements Routable
                 }},
                 {$lookup: {
                     from: 'medias',
-                    let: {'mediaId': '$avatar'},
+                    let: {'mediaId': '$media'},
                     pipeline: [
                         {$match: {
                             $expr: {
@@ -610,11 +635,11 @@ export default class UserController implements Routable
                             url: 1
                         }}
                     ],
-                    as: 'avatar'
+                    as: 'media'
                 }},
                 {
                     $unwind: {
-                        path : '$avatar',
+                        path : '$media',
                         preserveNullAndEmptyArrays: true,
                     }
                 },
@@ -622,8 +647,8 @@ export default class UserController implements Routable
                     _id: 1,
                     username: 1,
                     description: 1,
-                    avatar: {
-                        $ifNull: ['$avatar', null]
+                    media: {
+                        $ifNull: ['$media', null]
                     },
                     createdAt: 1
                 }}
@@ -660,12 +685,20 @@ export default class UserController implements Routable
                 throw(new ServerException(errors, 400));
             }
 
+            if (data.userId.toString() == request.session.user.id){
+                throw(new ServerException(['Prohibited'], 403));
+            }
+
             if (!await User.exists({_id: data.userId})){
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!await User.updateOne({_id: data.userId}, {$push: {subscribers: request.session.user.id}})){
+            if (!await User.updateOne({_id: data.userId}, {$addToSet: {followers: request.session.user.id}})){
                 throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
+            }
+
+            if (!await User.updateOne({_id: request.session.user.id}, {$addToSet: {following: data.userId}})){
+                throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
             }
 
             //TODO: NOTIFY THE USER WHO HAS BEEN FOLLOWED
@@ -701,8 +734,12 @@ export default class UserController implements Routable
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!await User.updateOne({_id: data.userId}, {$pull: {subscribers: request.session.user.id}})){
+            if (!await User.updateOne({_id: data.userId}, {$pull: {followers: request.session.user.id}})){
                 throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
+            }
+
+            if (!await User.updateOne({_id: request.session.user.id}, {$pull: {following: data.userId}})){
+                throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
             }
 
             response.status(204).send()

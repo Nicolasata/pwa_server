@@ -3,7 +3,7 @@ import { Document, Schema, Types, model  } from 'mongoose';
 interface IPost extends Document {
     user: Types.ObjectId;
     media: Types.ObjectId;
-    title: string;
+    likes: Types.ObjectId[];
     description: string;
 };
 
@@ -18,9 +18,10 @@ const PostSchema = new Schema<IPost>({
         ref: 'Media',
         default: null
     },
-    title: {
-        type: String,
-        default: null
+    likes: {
+        type: [Schema.Types.ObjectId],
+        ref: 'User',
+        default: []
     },
     description: {
         type: String,

@@ -5,8 +5,9 @@ interface IUser extends Document {
     password: string;
     description: string;
     email: string;
-    avatar: Types.ObjectId;
-    subscribers: [],
+    media: Types.ObjectId;
+    followers: Types.ObjectId[],
+    following: Types.ObjectId[],
     verified: boolean;
     deletedAt: Date;
 };
@@ -28,12 +29,17 @@ const UserSchema = new Schema<IUser>({
         type: String,
         required: true
     },
-    avatar: {
+    media: {
         type: Schema.Types.ObjectId,
         ref: 'Media',
         default: null
     },
-    subscribers: {
+    followers: {
+        type: [Schema.Types.ObjectId],
+        ref: 'User',
+        default: []
+    },
+    following: {
         type: [Schema.Types.ObjectId],
         ref: 'User',
         default: []
