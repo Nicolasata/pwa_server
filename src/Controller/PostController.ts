@@ -1,11 +1,16 @@
-import Routable from '../Interface/Routable';
 import Post from '../Schema/PostSchema';
+import User from '../Schema/UserSchema';
 import Media from '../Schema/MediaSchema';
+import Subscription from '../Schema/SubscriptionSchema';
+
 import ServerException from '../Exception/ServerException';
-import { validate } from 'class-validator';
-import { ClassConstructor, plainToClass } from 'class-transformer';
+import Routable from '../Interface/Routable';
+import DTOValidator from '../Class/DTOValidator';
+
+import { plainToInstance } from 'class-transformer';
 import { existsSync, unlinkSync } from 'fs';
 import { Types } from 'mongoose';
+import { sendNotification } from 'web-push';
 
 import SaveDTO from '../DTO/Post/Save';
 import EditDTO from '../DTO/Post/Edit';
@@ -14,12 +19,13 @@ import LikeDTO from '../DTO/Post/Like';
 import * as express from 'express';
 import * as multer from 'multer';
 
-export default class UserController implements Routable
+export default class UserController extends DTOValidator implements Routable
 {
     route: string;
     router: express.Router;
     constructor()
     {
+        super();
         this.router = express.Router();
         this.route = '/post';
     }
@@ -47,33 +53,6 @@ export default class UserController implements Routable
         this.router.delete('/delete/:postId', this.delete);
     }
 
-    async validateDTO<T extends ClassConstructor<any>>(DTO: T, data: Object): Promise<string[]>
-    {
-        const test = plainToClass(DTO, data);
-        const errors = await validate(test, {
-            skipMissingProperties: false,
-            stopAtFirstError: true
-        });
-        const messages = [];
-        if (errors?.length){
-            for (const error of errors){
-                if (error.constraints){
-                    for (const [constraint, message] of Object.entries(error.constraints)) {
-                        messages.push(message);
-                    }
-                }
-                if (error.children){
-                    for (const children of error.children){
-                        for (const [constraint, message] of Object.entries(children.constraints)) {
-                            messages.push(message);
-                        }
-                    }
-                }
-            }
-        }
-        return (messages);
-    }
-
     save = async (request: express.Request, response: express.Response) =>
     {
         try {
@@ -82,8 +61,17 @@ export default class UserController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
-            const errors = await this.validateDTO(SaveDTO, data);
+            const user = await User.findById(
+                request.session.user.id,
+                { _id: 1, username: 1, followers: 1 }
+            );
+
+            if (!user){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
+            const data = plainToInstance(SaveDTO, request.body);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
@@ -98,7 +86,7 @@ export default class UserController implements Routable
             }
 
             const newMedia = new Media({
-                user: request.session.user.id,
+                user: user._id,
                 mimetype: request.file.mimetype,
                 filename: request.file.filename,
                 originalName: request.file.originalname,
@@ -112,18 +100,31 @@ export default class UserController implements Routable
             }
 
             const newPost = new Post({
-                user: request.session.user.id,
+                user: user._id,
                 media: newMedia._id,
-                description: data.description
+                ...data
             });
 
             if (!await newPost.save()){
                 throw(new Error('Failed to save Post'));
             }
 
-            //TODO: NOTIFY THE FOLLOWERS
+            const subscriptions = await Subscription.find(
+                { user: user.followers },
+                { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
+            );
 
-            response.status(200).send({
+            for (const subscription of subscriptions){
+                sendNotification(subscription, JSON.stringify({
+                    type: 'NEW_POST',
+                    message: `${user.username} has published a new post`,
+                    url: `${process.env.FRONT_URL}/post/${newPost._id}`
+                }));
+            }
+
+            response
+            .status(200)
+            .send({
                 _id: newPost._id,
                 media: {
                     url: newMedia.url,
@@ -142,7 +143,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -190,7 +191,7 @@ export default class UserController implements Routable
                 //@ts-ignore
                 posts = posts.map((post) =>{
                     //@ts-ignore
-                    post.liked = post.likes.findIndex((like: any) => like.equals(request.session.user.id)) !== -1
+                    post.isLiked = post.likes.findIndex((like: Types.ObjectId) => like.equals(request.session.user.id)) !== -1
                     return (post);
                 });
             }
@@ -261,7 +262,7 @@ export default class UserController implements Routable
 
             if (request.session?.user?.id){
                 //@ts-ignore
-                post.liked = post.likes.findIndex((like: any) => like.equals(request.session.user.id)) !== -1
+                post.isLiked = post.likes.findIndex((like: Types.ObjectId) => like.equals(request.session.user.id)) !== -1
             }
 
             response
@@ -276,7 +277,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -288,9 +289,11 @@ export default class UserController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
-            if (data.description === undefined){
-                throw(new ServerException(['you must include one of the following parameters: description'], 400));
+            const data = plainToInstance(EditDTO, request.body);
+            const errors = await super.validateDTO(data);
+
+            if (errors?.length){
+                throw(new ServerException(errors, 400));
             }
 
             const post = await Post.findById(request.params.postId);
@@ -303,17 +306,13 @@ export default class UserController implements Routable
                 throw(new ServerException(['Prohibited'], 403));
             }
 
-            const errors = await this.validateDTO(EditDTO, data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
             if (!await Post.updateOne({_id: post._id}, {$set: data})){
                 throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
             }
 
-            response.status(204).send()
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -321,7 +320,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -333,32 +332,57 @@ export default class UserController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
+            const user = await User.findById(
+                request.session.user.id,
+                { _id: 1, username: 1 }
+            );
+
+            if (!user){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
+            const data = plainToInstance(LikeDTO, request.body);
+            const errors = await super.validateDTO(data);
+
+            if (errors?.length){
+                throw(new ServerException(errors, 400));
+            }
+
             const post = await Post.findById(request.params.postId);
 
             if (!post){
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
-            const data = request.body;
-            const errors = await this.validateDTO(LikeDTO, data);
+            const isLiked = post.likes.includes(user._id);
 
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
-            const like = post.likes.includes(new Types.ObjectId(request.session.user.id));
-
-            if (data.like && !like){
-                if (!await Post.updateOne({_id: post._id}, {$push: {likes: request.session.user.id}})){
+            if (data.isLiked && !isLiked){
+                if (!await Post.updateOne({_id: post._id}, {$push: {likes: user._id}})){
                     throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
                 }
-            } else if (!data.like && like){
-                if (!await Post.updateOne({_id: post._id}, {$pull: {likes: request.session.user.id}})){
+            } else if (!data.isLiked && isLiked){
+
+                if (!await Post.updateOne({_id: post._id}, {$pull: {likes: user._id}})){
                     throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
+                }
+
+                const subscriptions = await Subscription.find(
+                    { user: post.user },
+                    { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
+                );
+
+                for (const subscription of subscriptions){
+                    sendNotification(subscription, JSON.stringify({
+                        type: 'NEW_FOLLOWER',
+                        message: `${user.username} liked one of your posts`,
+                        url: `${process.env.FRONT_URL}/post/${post._id}`
+                    }));
                 }
             }
 
-            response.status(204).send()
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -366,7 +390,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -402,7 +426,9 @@ export default class UserController implements Routable
                 throw(new Error(`Failed to deleteOne Post with _id ${post._id}`));
             }
 
-            response.status(204).send()
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -410,7 +436,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 }

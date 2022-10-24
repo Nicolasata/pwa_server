@@ -1,15 +1,18 @@
-import Routable from '../Interface/Routable';
 import User from '../Schema/UserSchema';
 import Media from '../Schema/MediaSchema';
 import Post from '../Schema/PostSchema';
 import Subscription from '../Schema/SubscriptionSchema';
+
 import ServerException from '../Exception/ServerException';
+import DTOValidator from '../Class/DTOValidator';
+import Routable from '../Interface/Routable';
+
 import { hash, genSalt, compare } from 'bcrypt';
 import { randomBytes } from 'crypto';
-import { validate } from 'class-validator';
-import { ClassConstructor, plainToClass } from 'class-transformer';
+import { plainToInstance } from 'class-transformer';
 import { existsSync, unlinkSync } from 'fs';
 import { Types } from 'mongoose';
+import { sendNotification } from 'web-push';
 
 import SaveDTO from '../DTO/User/Save';
 import LoginDTO from '../DTO/User/Login';
@@ -19,12 +22,13 @@ import EditDTO from '../DTO/User/Edit';
 import * as express from 'express';
 import * as multer from 'multer';
 
-export default class UserController implements Routable
+export default class UserController extends DTOValidator implements Routable
 {
     route: string;
     router: express.Router;
     constructor()
     {
+        super();
         this.router = express.Router();
         this.route = '/user';
     }
@@ -70,33 +74,6 @@ export default class UserController implements Routable
         return (null);
     }
 
-    async validateDTO<T extends ClassConstructor<any>>(DTO: T, data: Object): Promise<string[]>
-    {
-        const test = plainToClass(DTO, data);
-        const errors = await validate(test, {
-            skipMissingProperties: false,
-            stopAtFirstError: true
-        });
-        const messages = [];
-        if (errors?.length){
-            for (const error of errors){
-                if (error.constraints){
-                    for (const [constraint, message] of Object.entries(error.constraints)) {
-                        messages.push(message);
-                    }
-                }
-                if (error.children){
-                    for (const children of error.children){
-                        for (const [constraint, message] of Object.entries(children.constraints)) {
-                            messages.push(message);
-                        }
-                    }
-                }
-            }
-        }
-        return (messages);
-    }
-
     fingerprint = async (request: express.Request, response: express.Response) =>
     {
         try {
@@ -124,7 +101,9 @@ export default class UserController implements Routable
                 request.session.visitor = { 'fingerprint': fingerprint };
             }
 
-            response.status(204).send();
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -132,7 +111,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -140,8 +119,8 @@ export default class UserController implements Routable
     {
         try {
 
-            const data = request.body;
-            const errors = await this.validateDTO(SaveDTO, data);
+            const data = plainToInstance(SaveDTO, request.body);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
@@ -155,19 +134,21 @@ export default class UserController implements Routable
             })){
                 throw(new ServerException(['Email or username already taken'], 200));
             }
+
+            data.password = await hash(
+                data.password,
+                await genSalt(parseInt(process.env.BCRYPT_SALT_ROUNDS))
+            );
             
-            const newUser = new User({
-                username: data.username,
-                email: data.email,
-                verified: true,
-                password: await hash(data.password, await genSalt(parseInt(process.env.BCRYPT_SALT_ROUNDS)))
-            });
+            const newUser = new User(data);
 
             if (!await newUser.save()){
                 throw(new Error('Failed to save User'));
             }
 
-            response.status(204).send();
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -175,7 +156,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -187,12 +168,13 @@ export default class UserController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
+            const data = plainToInstance(EditDTO, request.body);
+
             if (data.username === undefined && data.description === undefined && request.file === undefined){
                 throw(new ServerException(['you must include one of the following parameters: username, description, media'], 400));
             }
 
-            const errors = await this.validateDTO(EditDTO, data);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
@@ -224,6 +206,7 @@ export default class UserController implements Routable
                     throw(new Error('Failed to save Media'));
                 }
 
+                //@ts-ignore
                 data.media = newMedia._id;
 
                 if (user.media){
@@ -244,7 +227,9 @@ export default class UserController implements Routable
                 throw(new Error(`Failed to updateOne Post with _id ${request.session.user.id}`));
             }
 
-            response.status(204).send()
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -256,7 +241,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -427,7 +412,9 @@ export default class UserController implements Routable
                 }
             }
 
-            response.status(204).send();
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -435,7 +422,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -443,8 +430,8 @@ export default class UserController implements Routable
     {
         try {
 
-            const data = request.body;
-            const errors = await this.validateDTO(LoginDTO, data);
+            const data = plainToInstance(LoginDTO, request.body);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
@@ -459,10 +446,6 @@ export default class UserController implements Routable
 
             if (!user){
                 throw(new ServerException(['Incorrect username or email'], 200));
-            }
-
-            if (!user.verified){
-                throw(new ServerException(['Unverified account'], 200));
             }
 
             if (!await compare(data.password, user.password)){
@@ -485,7 +468,7 @@ export default class UserController implements Routable
                     username: user.username,
                     email: user.email
                 }
-            })
+            });
 
         } catch(error){
 
@@ -493,7 +476,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -596,7 +579,7 @@ export default class UserController implements Routable
                 //@ts-ignore
                 webProfile.posts = webProfile.posts.map((post) =>{
                     //@ts-ignore
-                    post.liked = post.likes.findIndex((like: any) => like.equals(request.session.user.id)) !== -1
+                    post.isLiked = post.likes.findIndex((like: Types.ObjectId) => like.equals(request.session.user.id)) !== -1
                     return (post);
                 });
             }
@@ -605,7 +588,7 @@ export default class UserController implements Routable
             .status(200)
             .send({
                 webProfile: webProfile
-            })
+            });
 
         } catch(error){
 
@@ -613,7 +596,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -687,14 +670,23 @@ export default class UserController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
-            const errors = await this.validateDTO(SubscribeDTO, data);
+            const user = await User.findById(
+                request.session.user.id,
+                { _id: 1, username: 1 }
+            );
+
+            if (!user){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
+            const data = plainToInstance(SubscribeDTO, request.body);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
             }
 
-            if (data.userId.toString() == request.session.user.id){
+            if (user._id.equals(data.userId)){
                 throw(new ServerException(['Prohibited'], 403));
             }
 
@@ -702,17 +694,29 @@ export default class UserController implements Routable
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!await User.updateOne({_id: data.userId}, {$addToSet: {followers: request.session.user.id}})){
+            if (!await User.updateOne({_id: data.userId}, {$addToSet: {followers: user._id}})){
                 throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
             }
 
-            if (!await User.updateOne({_id: request.session.user.id}, {$addToSet: {following: data.userId}})){
-                throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
+            if (!await User.updateOne({_id: user._id}, {$addToSet: {following: data.userId}})){
+                throw(new Error(`Failed to updateOne User with _id ${user._id}`));
             }
 
-            //TODO: NOTIFY THE USER WHO HAS BEEN FOLLOWED
+            const subscriptions = await Subscription.find(
+                { user: data.userId },
+                { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
+            );
 
-            response.status(204).send()
+            for (const subscription of subscriptions){
+                sendNotification(subscription, JSON.stringify({
+                    type: 'NEW_FOLLOWER',
+                    message: `${user.username} is now following you`
+                }));
+            }
+
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -720,7 +724,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -732,8 +736,8 @@ export default class UserController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
-            const errors = await this.validateDTO(SubscribeDTO, data);
+            const data = plainToInstance(SubscribeDTO, request.body);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
@@ -751,7 +755,9 @@ export default class UserController implements Routable
                 throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
             }
 
-            response.status(204).send()
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -759,7 +765,7 @@ export default class UserController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 }

@@ -1,8 +1,8 @@
-import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsDefined } from 'class-validator';
 
 export default class Edit
 {
-    @IsOptional()
+    @IsDefined()
     @IsString()
     @IsNotEmpty()
     description: string;

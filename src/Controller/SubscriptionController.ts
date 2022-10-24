@@ -1,19 +1,22 @@
-import Routable from '../Interface/Routable';
 import Subscription from '../Schema/SubscriptionSchema';
+
 import ServerException from '../Exception/ServerException';
-import { validate } from 'class-validator';
-import { ClassConstructor, plainToClass } from 'class-transformer';
+import Routable from '../Interface/Routable';
+import DTOValidator from '../Class/DTOValidator';
+
+import { plainToInstance } from 'class-transformer';
 
 import SaveDTO from '../DTO/Subscription/Save';
 
 import * as express from 'express';
 
-export default class SubscriptionController implements Routable
+export default class SubscriptionController extends DTOValidator implements Routable
 {
     route: string;
     router: express.Router;
     constructor()
     {
+        super();
         this.router = express.Router();
         this.route = '/subscription';
     }
@@ -24,33 +27,6 @@ export default class SubscriptionController implements Routable
         this.router.post('/save', this.save);
     }
 
-    async validateDTO<T extends ClassConstructor<any>>(DTO: T, data: Object): Promise<string[]>
-    {
-        const test = plainToClass(DTO, data);
-        const errors = await validate(test, {
-            skipMissingProperties: false,
-            stopAtFirstError: true
-        });
-        const messages = [];
-        if (errors?.length){
-            for (const error of errors){
-                if (error.constraints){
-                    for (const [constraint, message] of Object.entries(error.constraints)) {
-                        messages.push(message);
-                    }
-                }
-                if (error.children){
-                    for (const children of error.children){
-                        for (const [constraint, message] of Object.entries(children.constraints)) {
-                            messages.push(message);
-                        }
-                    }
-                }
-            }
-        }
-        return (messages);
-    }
-
     save = async (request: express.Request, response: express.Response) =>
     {
         try {
@@ -59,8 +35,8 @@ export default class SubscriptionController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
-            const errors = await this.validateDTO(SaveDTO, data);
+            const data = plainToInstance(SaveDTO, request.body);
+            const errors = await super.validateDTO(data);
 
             if (errors?.length){
                 throw(new ServerException(errors, 400));
@@ -68,18 +44,16 @@ export default class SubscriptionController implements Routable
 
             const newSubscription = new Subscription({
                 user: request.session.user.id,
-                endpoint: data.endpoint,
-                keys: {
-                    auth: data.keys.auth,
-                    p256dh: data.keys.p256dh
-                }
+                ...data
             });
 
             if (!await newSubscription.save()){
                 throw(new Error('Failed to save Subscription'));
             }
 
-            response.status(204).send()
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
@@ -87,7 +61,7 @@ export default class SubscriptionController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 
@@ -111,7 +85,7 @@ export default class SubscriptionController implements Routable
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            })
+            });
         }
     }
 }

@@ -81,8 +81,8 @@ export default class Application
 
     start()
     {
-        this.application.listen(3000, () => {
-            console.log(`App started on port 3000`);
+        this.application.listen(parseInt(process.env.SERVER_PORT), () => {
+            console.log(`App started on port ${process.env.SERVER_PORT}`);
         })
     }
 }

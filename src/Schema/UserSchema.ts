@@ -8,7 +8,6 @@ interface IUser extends Document {
     media: Types.ObjectId;
     followers: Types.ObjectId[],
     following: Types.ObjectId[],
-    verified: boolean;
     deletedAt: Date;
 };
 
@@ -43,10 +42,6 @@ const UserSchema = new Schema<IUser>({
         type: [Schema.Types.ObjectId],
         ref: 'User',
         default: []
-    },
-    verified: {
-        type: Boolean,
-        default: false
     },
     deletedAt: {
         type: Date,

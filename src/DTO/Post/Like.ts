@@ -4,5 +4,5 @@ export default class Like
 {
     @IsDefined()
     @IsBoolean()
-    like: boolean;
+    isLiked: boolean;
 }
