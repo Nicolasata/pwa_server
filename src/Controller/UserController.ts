@@ -16,7 +16,7 @@ import { sendNotification } from 'web-push';
 
 import SaveDTO from '../DTO/User/Save';
 import LoginDTO from '../DTO/User/Login';
-import SubscribeDTO from '../DTO/User/Subscribe';
+import FollowDTO from '../DTO/User/Follow';
 import EditDTO from '../DTO/User/Edit';
 
 import * as express from 'express';
@@ -50,8 +50,8 @@ export default class UserController extends DTOValidator implements Routable
 
         this.router.post('/save', this.save);
         this.router.post('/login', this.login);
-        this.router.post('/subscribe', this.subscribe);
-        this.router.post('/unsubscribe', this.unsubscribe);
+        this.router.post('/follow', this.follow);
+        this.router.post('/unfollow', this.unfollow);
         this.router.get('/fingerprint', this.fingerprint);
         this.router.get('/getCurrentUser', this.getCurrentUser);
         this.router.get('/getWebProfile/:username', this.getWebProfile);
@@ -487,7 +487,7 @@ export default class UserController extends DTOValidator implements Routable
             if (!request.session?.user?.id){
                 throw(new ServerException(['Unauthorized'], 401));
             }
-            
+
             const webProfile = await User.aggregate([
                 {$match: {
                     username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
@@ -664,7 +664,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    subscribe = async (request: express.Request, response: express.Response) =>
+    follow = async (request: express.Request, response: express.Response) =>
     {
         try {
 
@@ -681,7 +681,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(SubscribeDTO, request.body);
+            const data = plainToInstance(FollowDTO, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -692,28 +692,38 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Prohibited'], 403));
             }
 
-            if (!await User.exists({_id: data.userId})){
+            const targetedUser = await User.findById(
+                data.userId,
+                { _id: 1, followers: 1 }
+            )
+
+            if (!targetedUser){
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!await User.updateOne({_id: data.userId}, {$addToSet: {followers: user._id}})){
-                throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
-            }
+            if (!targetedUser.followers.includes(user._id)){
 
-            if (!await User.updateOne({_id: user._id}, {$addToSet: {following: data.userId}})){
-                throw(new Error(`Failed to updateOne User with _id ${user._id}`));
-            }
-
-            const subscriptions = await Subscription.find(
-                { user: data.userId },
-                { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
-            );
-
-            for (const subscription of subscriptions){
-                sendNotification(subscription, JSON.stringify({
-                    type: 'NEW_FOLLOWER',
-                    message: `${user.username} is now following you`
-                }));
+                if (!await User.updateOne({_id: data.userId}, {$addToSet: {followers: user._id}})){
+                    throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
+                }
+    
+                if (!await User.updateOne({_id: user._id}, {$addToSet: {following: targetedUser._id}})){
+                    throw(new Error(`Failed to updateOne User with _id ${user._id}`));
+                }
+    
+                const subscriptions = await Subscription.find(
+                    { user: targetedUser._id },
+                    { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
+                );
+    
+                if (subscriptions?.length){
+                    for (const subscription of subscriptions){
+                        sendNotification(subscription, JSON.stringify({
+                            type: 'NEW_FOLLOWER',
+                            message: `${user.username} is now following you`
+                        }));
+                    }
+                }
             }
 
             response
@@ -730,7 +740,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    unsubscribe = async (request: express.Request, response: express.Response) =>
+    unfollow = async (request: express.Request, response: express.Response) =>
     {
         try {
 
@@ -738,7 +748,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(SubscribeDTO, request.body);
+            const data = plainToInstance(FollowDTO, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){

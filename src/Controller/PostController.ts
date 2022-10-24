@@ -114,12 +114,14 @@ export default class UserController extends DTOValidator implements Routable
                 { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
             );
 
-            for (const subscription of subscriptions){
-                sendNotification(subscription, JSON.stringify({
-                    type: 'NEW_POST',
-                    message: `${user.username} has published a new post`,
-                    url: `${process.env.FRONT_URL}/post/${newPost._id}`
-                }));
+            if (subscriptions?.length){
+                for (const subscription of subscriptions){
+                    sendNotification(subscription, JSON.stringify({
+                        type: 'NEW_POST',
+                        message: `${user.username} has published a new post`,
+                        url: `${process.env.FRONT_URL}/post/${newPost._id}`
+                    }));
+                }
             }
 
             response
@@ -383,12 +385,14 @@ export default class UserController extends DTOValidator implements Routable
                     { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
                 );
 
-                for (const subscription of subscriptions){
-                    sendNotification(subscription, JSON.stringify({
-                        type: 'NEW_FOLLOWER',
-                        message: `${user.username} liked one of your posts`,
-                        url: `${process.env.FRONT_URL}/post/${post._id}`
-                    }));
+                if (subscriptions?.length){
+                    for (const subscription of subscriptions){
+                        sendNotification(subscription, JSON.stringify({
+                            type: 'NEW_FOLLOWER',
+                            message: `${user.username} liked one of your posts`,
+                            url: `${process.env.FRONT_URL}/post/${post._id}`
+                        }));
+                    }
                 }
             }
 
