@@ -39,7 +39,7 @@ export default class UserController implements Routable
             storage: diskStorage
         });
 
-        this.router.get('/getPosts/:userId', this.getPosts);
+        this.router.get('/getPosts', this.getPosts);
         this.router.get('/getPost/:postId', this.getPost);
         this.router.post('/save', upload.single('media'), this.save);
         this.router.put('/edit/:postId', this.edit);
@@ -151,9 +151,6 @@ export default class UserController implements Routable
         try {
 
             let posts = await Post.aggregate([
-                {$match: {
-                    user: new Types.ObjectId(request.params.userId)
-                }},
                 {$lookup: {
                     from: 'medias',
                     let: {'mediaId': '$media'},
@@ -177,6 +174,9 @@ export default class UserController implements Routable
                         preserveNullAndEmptyArrays: true,
                     }
                 },
+                {$sort: {
+                    createdAt : -1
+                }},
                 {$project: {
                     _id: 1,
                     media: {
