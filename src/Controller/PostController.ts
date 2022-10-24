@@ -151,7 +151,8 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            let posts = await Post.aggregate([
+            const userId = request.session?.user?.id;
+            const posts = await Post.aggregate([
                 {$lookup: {
                     from: 'medias',
                     let: {'mediaId': '$media'},
@@ -180,8 +181,8 @@ export default class UserController extends DTOValidator implements Routable
                        $cond: [ 
                         {
                             $and: [ 
-                                { $ne: [ request.session?.user?.id, undefined ] },
-                                { $in: [ request.session.user.id, '$likes' ] }
+                                { $ne: [ userId, undefined ] },
+                                { $in: [ userId, '$likes' ] }
                             ]
                         },
                         true, 
@@ -222,6 +223,7 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
+            const userId = request.session?.user?.id;
             const post = await Post.aggregate([
                 {$match: {
                     _id: new Types.ObjectId(request.params.postId)
@@ -254,8 +256,8 @@ export default class UserController extends DTOValidator implements Routable
                        $cond: [ 
                         {
                             $and: [ 
-                                { $ne: [ request.session?.user?.id, undefined ] },
-                                { $in: [ request.session.user.id, '$likes' ] }
+                                { $ne: [ userId, undefined ] },
+                                { $in: [ userId, '$likes' ] }
                             ]
                         },
                         true, 

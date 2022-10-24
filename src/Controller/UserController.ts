@@ -484,6 +484,7 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
+            const userId = request.session?.user?.id;
             const webProfile = await User.aggregate([
                 {$match: {
                     username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
@@ -534,8 +535,8 @@ export default class UserController extends DTOValidator implements Routable
                                $cond: [ 
                                 {
                                     $and: [ 
-                                        { $ne: [ request.session?.user?.id, undefined ] },
-                                        { $in: [ request.session.user.id, '$likes' ] }
+                                        { $ne: [ userId, undefined ] },
+                                        { $in: [ userId, '$likes' ] }
                                     ]
                                 },
                                 true, 
