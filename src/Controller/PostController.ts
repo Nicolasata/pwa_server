@@ -111,7 +111,7 @@ export default class UserController extends DTOValidator implements Routable
 
             const subscriptions = await Subscription.find(
                 { user: user.followers },
-                { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
+                { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
             );
 
             if (subscriptions?.length){
@@ -382,7 +382,7 @@ export default class UserController extends DTOValidator implements Routable
 
                 const subscriptions = await Subscription.find(
                     { user: post.user },
-                    { _id: 0, endpoint: 1, 'keys.auth' : 1, 'keys.p256dh': 1 }
+                    { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                 );
 
                 if (subscriptions?.length){
