@@ -720,7 +720,8 @@ export default class UserController extends DTOValidator implements Routable
                     for (const subscription of subscriptions){
                         sendNotification(subscription, JSON.stringify({
                             type: 'NEW_FOLLOWER',
-                            message: `${user.username} is now following you`
+                            message: `${user.username} is now following you`,
+                            url: `${process.env.FRONT_URL}/user/${user._id}`
                         }));
                     }
                 }
