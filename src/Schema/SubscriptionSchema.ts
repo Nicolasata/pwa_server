@@ -1,11 +1,26 @@
 import { Document, Schema, Types, model  } from 'mongoose';
 
+interface IKeys extends Document {
+    auth: string;
+    p256dh: string;
+}
+
 interface ISubscription extends Document {
     user: Types.ObjectId;
     endpoint: string;
-    auth: string;
-    p256dh: string;
+    keys: IKeys
 };
+
+const KeysSchema = new Schema<IKeys>({
+    auth: {
+        type: String,
+        required: true
+    },
+    p256dh: {
+        type: String,
+        required: true
+    }
+});
 
 const SubscriptionSchema = new Schema<ISubscription>({
     user: {
@@ -17,12 +32,8 @@ const SubscriptionSchema = new Schema<ISubscription>({
         type: String,
         required: true
     },
-    auth: {
-        type: String,
-        required: true
-    },
-    p256dh: {
-        type: String,
+    keys: {
+        type: KeysSchema,
         required: true
     }
 },

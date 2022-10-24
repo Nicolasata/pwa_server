@@ -8,7 +8,7 @@ import * as session from 'express-session';
 import * as cors from 'cors';
 import * as connectMongoDBSession from 'connect-mongodb-session';
 import * as express from 'express';
-
+import 'reflect-metadata'
 
 export default class Application
 {

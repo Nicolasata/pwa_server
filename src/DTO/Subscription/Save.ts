@@ -1,12 +1,8 @@
-import { IsString, IsDefined, IsUrl, IsNotEmpty } from 'class-validator';
+import { IsString, IsDefined, IsUrl, IsNotEmpty, ValidateNested, IsObject  } from 'class-validator';
+import { Type } from 'class-transformer';
 
-export default class Save
+export class Keys
 {
-    @IsDefined()
-    @IsString()
-    @IsUrl()
-    endpoint: string;
-
     @IsDefined()
     @IsString()
     @IsNotEmpty()
@@ -17,3 +13,17 @@ export default class Save
     @IsNotEmpty()
     p256dh: string;
 }
+
+export default class Save
+{
+    @IsDefined()
+    @IsString()
+    @IsUrl()
+    endpoint: string;
+
+    @IsDefined()
+    @IsObject()
+    @ValidateNested()
+    @Type(() => Keys)
+    keys: Keys
+};

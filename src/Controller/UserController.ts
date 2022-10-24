@@ -80,8 +80,17 @@ export default class UserController implements Routable
         const messages = [];
         if (errors?.length){
             for (const error of errors){
-                for (const [constraint, message] of Object.entries(error.constraints)) {
-                    messages.push(message);
+                if (error.constraints){
+                    for (const [constraint, message] of Object.entries(error.constraints)) {
+                        messages.push(message);
+                    }
+                }
+                if (error.children){
+                    for (const children of error.children){
+                        for (const [constraint, message] of Object.entries(children.constraints)) {
+                            messages.push(message);
+                        }
+                    }
                 }
             }
         }

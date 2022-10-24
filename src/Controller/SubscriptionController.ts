@@ -34,8 +34,17 @@ export default class SubscriptionController implements Routable
         const messages = [];
         if (errors?.length){
             for (const error of errors){
-                for (const [constraint, message] of Object.entries(error.constraints)) {
-                    messages.push(message);
+                if (error.constraints){
+                    for (const [constraint, message] of Object.entries(error.constraints)) {
+                        messages.push(message);
+                    }
+                }
+                if (error.children){
+                    for (const children of error.children){
+                        for (const [constraint, message] of Object.entries(children.constraints)) {
+                            messages.push(message);
+                        }
+                    }
                 }
             }
         }
@@ -60,8 +69,10 @@ export default class SubscriptionController implements Routable
             const newSubscription = new Subscription({
                 user: request.session.user.id,
                 endpoint: data.endpoint,
-                auth: data.auth,
-                p256dh: data.p256dh
+                keys: {
+                    auth: data.keys.auth,
+                    p256dh: data.keys.p256dh
+                }
             });
 
             if (!await newSubscription.save()){
