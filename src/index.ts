@@ -6,8 +6,8 @@ import { VisitorSession, UserSession } from './Session'
 
 declare module 'express-session' {
     interface SessionData {
-      user: UserSession;
-      visitor: VisitorSession
+        user: UserSession;
+        visitor: VisitorSession
     }
 };
 
