@@ -79,8 +79,9 @@ export default class Application
         this.initiliseWebPush();
     }
 
-    start()
+    async start()
     {
+        await this.initialise();
         this.application.listen(parseInt(process.env.SERVER_PORT), () => {
             console.log(`App started on port ${process.env.SERVER_PORT}`);
         })

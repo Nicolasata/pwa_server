@@ -17,5 +17,4 @@ const application = new Application([
     new PostController
 ]);
 
-application.initialise();
 application.start();
