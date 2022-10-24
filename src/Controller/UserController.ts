@@ -484,7 +484,7 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            let webProfile = await User.aggregate([
+            const webProfile = await User.aggregate([
                 {$match: {
                     username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
                 }},
@@ -528,6 +528,20 @@ export default class UserController extends DTOValidator implements Routable
                             },
                             createdAt: 1,
                             likes: 1
+                        }},
+                        {$addFields: {
+                            isLiked: { 
+                               $cond: [ 
+                                {
+                                    $and: [ 
+                                        { $ne: [ request.session?.user?.id, undefined ] },
+                                        { $in: [ request.session.user.id, '$likes' ] }
+                                    ]
+                                },
+                                true, 
+                                false
+                               ]
+                            } 
                         }}
                     ],
                     as: 'posts'
@@ -573,21 +587,10 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException([`user ${request.params.username} does not exist`], 400));
             }
 
-            webProfile = webProfile[0];
-
-            if (request.session?.user?.id){
-                //@ts-ignore
-                webProfile.posts = webProfile.posts.map((post) =>{
-                    //@ts-ignore
-                    post.isLiked = post.likes.findIndex((like: Types.ObjectId) => like.equals(request.session.user.id)) !== -1
-                    return (post);
-                });
-            }
-
             response
             .status(200)
             .send({
-                webProfile: webProfile
+                webProfile: webProfile[0]
             });
 
         } catch(error){

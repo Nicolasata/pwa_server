@@ -175,6 +175,20 @@ export default class UserController extends DTOValidator implements Routable
                         preserveNullAndEmptyArrays: true,
                     }
                 },
+                {$addFields: { 
+                    isLiked: { 
+                       $cond: [ 
+                        {
+                            $and: [ 
+                                { $ne: [ request.session?.user?.id, undefined ] },
+                                { $in: [ request.session.user.id, '$likes' ] }
+                            ]
+                        },
+                        true, 
+                        false
+                       ]
+                    }
+                }},
                 {$sort: {
                     createdAt : -1
                 }},
@@ -183,18 +197,10 @@ export default class UserController extends DTOValidator implements Routable
                     media: {
                         $ifNull: ['$media', null]
                     },
-                    likes: 1
+                    likes: 1,
+                    isLiked: 1
                 }}
             ]);
-
-            if (request.session?.user?.id){
-                //@ts-ignore
-                posts = posts.map((post) =>{
-                    //@ts-ignore
-                    post.isLiked = post.likes.findIndex((like: Types.ObjectId) => like.equals(request.session.user.id)) !== -1
-                    return (post);
-                });
-            }
 
             response
             .status(200)
@@ -216,7 +222,7 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            let post = await Post.aggregate([
+            const post = await Post.aggregate([
                 {$match: {
                     _id: new Types.ObjectId(request.params.postId)
                 }},
@@ -243,6 +249,20 @@ export default class UserController extends DTOValidator implements Routable
                         preserveNullAndEmptyArrays: true,
                     }
                 },
+                {$addFields: {
+                    isLiked: { 
+                       $cond: [ 
+                        {
+                            $and: [ 
+                                { $ne: [ request.session?.user?.id, undefined ] },
+                                { $in: [ request.session.user.id, '$likes' ] }
+                            ]
+                        },
+                        true, 
+                        false
+                       ]
+                    } 
+                }},
                 {$project: {
                     _id: 1,
                     description: 1,
@@ -250,7 +270,8 @@ export default class UserController extends DTOValidator implements Routable
                     media: {
                         $ifNull: ['$media', null]
                     },
-                    createdAt: 1
+                    createdAt: 1,
+                    isLiked: 1
                 }}
             ]);
 
@@ -258,17 +279,10 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
-            post = post[0];
-
-            if (request.session?.user?.id){
-                //@ts-ignore
-                post.isLiked = post.likes.findIndex((like: Types.ObjectId) => like.equals(request.session.user.id)) !== -1
-            }
-
             response
             .status(200)
             .send({
-                post: post
+                post: post[0]
             });
 
         } catch(error){
