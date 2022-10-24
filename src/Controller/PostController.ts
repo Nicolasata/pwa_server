@@ -151,7 +151,10 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            const userId = request.session?.user?.id;
+            if (!request.session?.user?.id){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const posts = await Post.aggregate([
                 {$lookup: {
                     from: 'medias',
@@ -178,16 +181,11 @@ export default class UserController extends DTOValidator implements Routable
                 },
                 {$addFields: { 
                     isLiked: { 
-                       $cond: [ 
-                        {
-                            $and: [ 
-                                { $ne: [ userId, undefined ] },
-                                { $in: [ userId, '$likes' ] }
-                            ]
-                        },
-                        true, 
-                        false
-                       ]
+                        $cond: [ 
+                            { $in: [ request.session.user.id, '$likes' ] },
+                            true, 
+                            false
+                        ]
                     }
                 }},
                 {$sort: {
@@ -223,7 +221,10 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            const userId = request.session?.user?.id;
+            if (!request.session?.user?.id){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+            
             const post = await Post.aggregate([
                 {$match: {
                     _id: new Types.ObjectId(request.params.postId)
@@ -251,19 +252,14 @@ export default class UserController extends DTOValidator implements Routable
                         preserveNullAndEmptyArrays: true,
                     }
                 },
-                {$addFields: {
+                {$addFields: { 
                     isLiked: { 
-                       $cond: [ 
-                        {
-                            $and: [ 
-                                { $ne: [ userId, undefined ] },
-                                { $in: [ userId, '$likes' ] }
-                            ]
-                        },
-                        true, 
-                        false
-                       ]
-                    } 
+                        $cond: [ 
+                            { $in: [ request.session.user.id, '$likes' ] },
+                            true, 
+                            false
+                        ]
+                    }
                 }},
                 {$project: {
                     _id: 1,

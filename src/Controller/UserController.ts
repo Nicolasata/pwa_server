@@ -484,7 +484,10 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            const userId = request.session?.user?.id;
+            if (!request.session?.user?.id){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+            
             const webProfile = await User.aggregate([
                 {$match: {
                     username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
@@ -530,19 +533,14 @@ export default class UserController extends DTOValidator implements Routable
                             createdAt: 1,
                             likes: 1
                         }},
-                        {$addFields: {
+                        {$addFields: { 
                             isLiked: { 
-                               $cond: [ 
-                                {
-                                    $and: [ 
-                                        { $ne: [ userId, undefined ] },
-                                        { $in: [ userId, '$likes' ] }
-                                    ]
-                                },
-                                true, 
-                                false
-                               ]
-                            } 
+                                $cond: [ 
+                                    { $in: [ request.session.user.id, '$likes' ] },
+                                    true, 
+                                    false
+                                ]
+                            }
                         }}
                     ],
                     as: 'posts'
