@@ -183,7 +183,7 @@ export default class UserController extends DTOValidator implements Routable
             const user = await User.findById(request.session.user.id).populate('media');
 
             if (!user){
-                throw(new Error(`user ${request.session.user.id} does not exist`));
+                throw(new ServerException(['Unauthorized'], 401));
             }
 
             if (request.file){
