@@ -19,7 +19,7 @@ const CommentSchema = new Schema<IComment>({
     },
     text: {
         type: String,
-        default: null
+        required: true
     }
 },
 {
