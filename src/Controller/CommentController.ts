@@ -1,11 +1,14 @@
 import Post from '../Schema/PostSchema';
 import Comment from '../Schema/CommentSchema';
+import Subscription from '../Schema/SubscriptionSchema';
+import User from '../Schema/UserSchema';
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Class/DTOValidator';
 
 import { plainToInstance } from 'class-transformer';
+import { sendNotification } from 'web-push';
 
 import SaveDTO from '../DTO/Comment/Save';
 import EditDTO from '../DTO/Comment/Edit';
@@ -38,6 +41,15 @@ export default class CommentController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
+            const user = await User.findById(
+                request.session.user.id,
+                { _id: 1, username: 1 }
+            );
+
+            if (!user){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const data = plainToInstance(SaveDTO, request.body);
             const errors = await super.validateDTO(data);
 
@@ -45,17 +57,37 @@ export default class CommentController extends DTOValidator implements Routable
                 throw(new ServerException(errors, 400));
             }
 
-            if (!await Post.exists({_id: data.post})){
+            const post = await Post.findById(
+                data.post,
+                { _id: 1, user: 1 }
+            );
+
+            if (!post){
                 throw(new ServerException([`post ${data.post} does not exist`], 400));
             }
 
             const newComment = new Comment({
-                user: request.session.user.id,
+                user: user._id,
                 ...data
             });
 
             if (!await newComment.save()){
                 throw(new Error('Failed to save Comment'));
+            }
+
+            const subscriptions = await Subscription.find(
+                { user: post.user },
+                { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+            );
+
+            if (subscriptions?.length){
+                for (const subscription of subscriptions){
+                    sendNotification(subscription, JSON.stringify({
+                        type: 'NEW_COMMENT',
+                        message: `${user.username} commented on one of your posts`,
+                        url: `${process.env.FRONT_URL}/post/${post._id}`
+                    }));
+                }
             }
 
             response

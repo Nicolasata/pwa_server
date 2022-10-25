@@ -662,7 +662,7 @@ export default class PostController extends DTOValidator implements Routable
                 if (subscriptions?.length){
                     for (const subscription of subscriptions){
                         sendNotification(subscription, JSON.stringify({
-                            type: 'NEW_FOLLOWER',
+                            type: 'NEW_LIKE',
                             message: `${user.username} liked one of your posts`,
                             url: `${process.env.FRONT_URL}/post/${post._id}`
                         }));
