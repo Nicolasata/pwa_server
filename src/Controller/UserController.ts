@@ -1,6 +1,7 @@
 import User from '../Schema/UserSchema';
 import Media from '../Schema/MediaSchema';
 import Post from '../Schema/PostSchema';
+import Comment from '../Schema/CommentSchema';
 import Subscription from '../Schema/SubscriptionSchema';
 
 import ServerException from '../Exception/ServerException';
@@ -253,163 +254,70 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            let user = await User.aggregate([
-                {$match: {
-                    _id: new Types.ObjectId(request.session.user.id)
-                }},
-                {$lookup: {
-                    from: 'posts',
-                    let: {'userId': '$_id'},
-                    pipeline: [
-                        {$match: {
-                            $expr: {
-                                $eq: ['$user', '$$userId']
-                            }
-                        }},
-                        {$lookup: {
-                            from: 'medias',
-                            let: {'mediaId': '$media'},
-                            pipeline: [
-                                {$match: {
-                                    $expr: {
-                                        $eq: ['$_id', '$$mediaId']
-                                    }
-                                }},
-                                {$project: {
-                                    _id: 1,
-                                    location: 1
-                                }}
-                            ],
-                            as: 'media'
-                        }},
-                        {
-                            $unwind: {
-                                path : '$media',
-                                preserveNullAndEmptyArrays: true
-                            }
-                        },
-                        {$project: {
-                            _id: 1,
-                            media: {
-                                $ifNull: ['$media', null]
-                            }
-                        }}
-                    ],
-                    as: 'posts'
-                }},
-                {$lookup: {
-                    from: 'subscriptions',
-                    let: {'userId': '$_id'},
-                    pipeline: [
-                        {$match: {
-                            $expr: {
-                                $eq: ['$user', '$$userId']
-                            }
-                        }},
-                        {$project: {
-                            _id : 1
-                        }}
-                    ],
-                    as: 'subscriptions'
-                }},
-                {$lookup: {
-                    from: 'medias',
-                    let: {'mediaId': '$media'},
-                    pipeline: [
-                        {$match: {
-                            $expr: {
-                                $eq: ['$_id', '$$mediaId']
-                            }
-                        }},
-                        {$project: {
-                            _id : 1,
-                            location: 1
-                        }}
-                    ],
-                    as: 'media'
-                }},
-                {
-                    $unwind: {
-                        path : '$media',
-                        preserveNullAndEmptyArrays: true,
-                    }
-                },
-                {$project: {
-                    _id: 1,
-                    media: {
-                        $ifNull: ['$media', null]
-                    },
-                    following: 1,
-                    posts: 1,
-                    subscriptions: 1
-                }}
-            ]);
+            const user = await User.findById(
+                request.session.user.id,
+                { _id: 1, following: 1, likes: 1 }
+            );
 
-            if (user?.length){
+            if (!user){
+                throw(new ServerException(['Unauthorized'], 401));
+            }
 
-                user = user[0];
+            const medias = await Media.find(
+                { user: user._id },
+                { location: 1 }
+            );
 
-                const postIds = [];
-                const mediaIds = [];
-                const subscriptionIds = [];
-
-                //@ts-ignore
-                if (user.media){
-
+            if (medias?.length){
+                for (const media of medias){
                     //@ts-ignore
-                    if (existsSync(user.media.location)){
+                    if (existsSync(media.location)){
                         //@ts-ignore
-                        unlinkSync(user.media.location);
+                        unlinkSync(media.location);
                     }
-                    //@ts-ignore
-                    mediaIds.push(user.media._id);
                 }
+            }
 
+            //@ts-ignore
+            if (!await Post.deleteMany({user: user._id})){
                 //@ts-ignore
-                for (const subscription of user.subscriptions){
-                    subscriptionIds.push(subscription._id);
-                }
+                throw(new Error(`Failed to deleteMany Post of User with _id ${user._id}`));
+            }
 
+            //@ts-ignore
+            if (!await Post.updateMany({_id: user.likes}, {$pull: {likes: user._id}})){
                 //@ts-ignore
-                for (const post of user.posts){
+                throw(new Error(`Failed to deleteMany Post of User with _id ${user._id}`));
+            }
 
-                    //@ts-ignore
-                    if (existsSync(post.media.location)){
-                        //@ts-ignore
-                        unlinkSync(post.media.location);
-                    }
-
-                    postIds.push(post._id);
-                    mediaIds.push(post.media._id);
-                }
-
-                if (postIds.length){
-                    if (!await Post.deleteMany({_id: postIds})){
-                        throw(new Error(`Failed to deleteMany Post with _ids ${postIds.join()}`));
-                    }
-                }
-
-                if (mediaIds.length){
-                    if (!await Media.deleteMany({_id: mediaIds})){
-                        throw(new Error(`Failed to deleteMany Media with _ids ${mediaIds.join()}`));
-                    }
-                }
-
-                if (subscriptionIds.length){
-                    if (!await Subscription.deleteMany({_id: subscriptionIds})){
-                        throw(new Error(`Failed to deleteMany Subscription with _ids ${subscriptionIds.join()}`));
-                    }
-                }
-
+            //@ts-ignore
+            if (!await Media.deleteMany({user: user._id})){
                 //@ts-ignore
-                if (!await User.updateMany({_id: user.following}, {$pull: {followers: user._id}})){
-                    //@ts-ignore
-                    throw(new Error(`Failed to updateMany Users with _ids ${user.following.join()}`));
-                }
+                throw(new Error(`Failed to deleteMany Media of User with _id ${user._id}`));
+            }
 
-                if (!await User.updateOne({_id: request.session.user.id}, {$set: {deletedAt: new Date}})){
-                    throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
-                }
+            //@ts-ignore
+            if (!await Subscription.deleteMany({user: user._id})){
+                //@ts-ignore
+                throw(new Error(`Failed to deleteMany Subscription of User with _id ${user._id}`));
+            }
+
+            //@ts-ignore
+            if (!await Comment.deleteMany({user: user._id})){
+                //@ts-ignore
+                throw(new Error(`Failed to deleteMany Comment of User with _id ${user._id}`));
+            }
+
+            //@ts-ignore
+            if (!await User.updateMany({_id: user.following}, {$pull: {followers: user._id}})){
+                //@ts-ignore
+                throw(new Error(`Failed to updateMany Users with _ids ${user.following.join()}`));
+            }
+
+            //@ts-ignore
+            if (!await User.updateOne({_id: user._id}, {$set: {deletedAt: new Date}})){
+                //@ts-ignore
+                throw(new Error(`Failed to updateOne User with _id ${user._id}`));
             }
 
             response
