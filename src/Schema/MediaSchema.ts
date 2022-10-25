@@ -1,4 +1,4 @@
-import { Document, Schema, Types, model  } from 'mongoose';
+import { Document, Schema, Types, model } from 'mongoose';
 
 interface IMedia extends Document {
     user: Types.ObjectId;

@@ -2,6 +2,7 @@ import Application from './Application'
 import UserController from './Controller/UserController'
 import SubscriptionController from './Controller/SubscriptionController'
 import PostController from './Controller/PostController'
+import CommentController from './Controller/CommentController'
 import { VisitorSession, UserSession } from './Session'
 
 declare module 'express-session' {
@@ -14,7 +15,8 @@ declare module 'express-session' {
 const application = new Application([
     new UserController,
     new SubscriptionController,
-    new PostController
+    new PostController,
+    new CommentController
 ]);
 
 application.start();

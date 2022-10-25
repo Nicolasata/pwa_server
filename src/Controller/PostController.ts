@@ -19,7 +19,7 @@ import LikeDTO from '../DTO/Post/Like';
 import * as express from 'express';
 import * as multer from 'multer';
 
-export default class UserController extends DTOValidator implements Routable
+export default class PostController extends DTOValidator implements Routable
 {
     route: string;
     router: express.Router;
@@ -159,6 +159,139 @@ export default class UserController extends DTOValidator implements Routable
 
             const posts = await Post.aggregate([
                 {$lookup: {
+                    from: 'users',
+                    let: {'userId': '$user'},
+                    pipeline: [
+                        {$match: {
+                            $expr: {
+                                $eq: ['$_id', '$$userId']
+                            }
+                        }},
+                        {$lookup: {
+                            from: 'medias',
+                            let: {'mediaId': '$media'},
+                            pipeline: [
+                                {$match: {
+                                    $expr: {
+                                        $eq: ['$_id', '$$mediaId']
+                                    }
+                                }},
+                                {$project: {
+                                    _id : 0,
+                                    mimetype: 1,
+                                    url: 1
+                                }}
+                            ],
+                            as: 'media'
+                        }},
+                        {
+                            $unwind: {
+                                path : '$media',
+                                preserveNullAndEmptyArrays: true,
+                            }
+                        },
+                        {$addFields: { 
+                            isFollower: { 
+                                $cond: [ 
+                                    { $in: [ request.session.user.id, '$followers' ] },
+                                    true, 
+                                    false
+                                ]
+                            }
+                        }},
+                        {$project: {
+                            _id: 1,
+                            username: 1,
+                            media: {
+                                $ifNull: ['$media', null]
+                            },
+                            followers: {
+                                $size: '$followers'
+                            },
+                            following: {
+                                $size: '$following'
+                            },
+                            isFollower: 1
+                        }}
+                    ],
+                    as: 'user'
+                }},
+                {
+                    $unwind: {
+                        path : '$user',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {$lookup: {
+                    from: 'comments',
+                    let: {'postId': '$_id'},
+                    pipeline: [
+                        {$match: {
+                            $expr: {
+                                $eq: ['$post', '$$postId']
+                            }
+                        }},
+                        {$lookup: {
+                            from: 'users',
+                            let: {'userId': '$user'},
+                            pipeline: [
+                                {$match: {
+                                    $expr: {
+                                        $eq: ['$_id', '$$userId']
+                                    }
+                                }},
+                                {$lookup: {
+                                    from: 'medias',
+                                    let: {'mediaId': '$media'},
+                                    pipeline: [
+                                        {$match: {
+                                            $expr: {
+                                                $eq: ['$_id', '$$mediaId']
+                                            }
+                                        }},
+                                        {$project: {
+                                            mimetype: 1,
+                                            url: 1
+                                        }}
+                                    ],
+                                    as: 'media'
+                                }},
+                                {
+                                    $unwind: {
+                                        path : '$media',
+                                        preserveNullAndEmptyArrays: true
+                                    }
+                                },
+                                {$project: {
+                                    _id: 1,
+                                    username: 1,
+                                    media: {
+                                        $ifNull: ['$media', null]
+                                    }
+                                }}
+                            ],
+                            as: 'user'
+                        }},
+                        {
+                            $unwind: {
+                                path : '$user',
+                                preserveNullAndEmptyArrays: true
+                            }
+                        },
+                        {$sort: {
+                            createdAt : -1
+                        }},
+                        {$project: {
+                            _id : 1,
+                            user: 1,
+                            text: 1,
+                            createdAt: 1,
+                            updatedAt: 1
+                        }}
+                    ],
+                    as: 'comments'
+                }},
+                {$lookup: {
                     from: 'medias',
                     let: {'mediaId': '$media'},
                     pipeline: [
@@ -195,10 +328,14 @@ export default class UserController extends DTOValidator implements Routable
                 }},
                 {$project: {
                     _id: 1,
+                    user: 1,
+                    comments: 1,
                     media: {
                         $ifNull: ['$media', null]
                     },
-                    likes: 1,
+                    likes: {
+                        $size: '$likes'
+                    },
                     isLiked: 1
                 }}
             ]);
@@ -230,6 +367,139 @@ export default class UserController extends DTOValidator implements Routable
             const post = await Post.aggregate([
                 {$match: {
                     _id: new Types.ObjectId(request.params.postId)
+                }},
+                {$lookup: {
+                    from: 'users',
+                    let: {'userId': '$user'},
+                    pipeline: [
+                        {$match: {
+                            $expr: {
+                                $eq: ['$_id', '$$userId']
+                            }
+                        }},
+                        {$lookup: {
+                            from: 'medias',
+                            let: {'mediaId': '$media'},
+                            pipeline: [
+                                {$match: {
+                                    $expr: {
+                                        $eq: ['$_id', '$$mediaId']
+                                    }
+                                }},
+                                {$project: {
+                                    _id : 0,
+                                    mimetype: 1,
+                                    url: 1
+                                }}
+                            ],
+                            as: 'media'
+                        }},
+                        {
+                            $unwind: {
+                                path : '$media',
+                                preserveNullAndEmptyArrays: true,
+                            }
+                        },
+                        {$addFields: { 
+                            isFollower: { 
+                                $cond: [ 
+                                    { $in: [ request.session.user.id, '$followers' ] },
+                                    true, 
+                                    false
+                                ]
+                            }
+                        }},
+                        {$project: {
+                            _id: 1,
+                            username: 1,
+                            media: {
+                                $ifNull: ['$media', null]
+                            },
+                            followers: {
+                                $size: '$followers'
+                            },
+                            following: {
+                                $size: '$following'
+                            },
+                            isFollower: 1
+                        }}
+                    ],
+                    as: 'user'
+                }},
+                {
+                    $unwind: {
+                        path : '$user',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {$lookup: {
+                    from: 'comments',
+                    let: {'postId': '$_id'},
+                    pipeline: [
+                        {$match: {
+                            $expr: {
+                                $eq: ['$post', '$$postId']
+                            }
+                        }},
+                        {$lookup: {
+                            from: 'users',
+                            let: {'userId': '$user'},
+                            pipeline: [
+                                {$match: {
+                                    $expr: {
+                                        $eq: ['$_id', '$$userId']
+                                    }
+                                }},
+                                {$lookup: {
+                                    from: 'medias',
+                                    let: {'mediaId': '$media'},
+                                    pipeline: [
+                                        {$match: {
+                                            $expr: {
+                                                $eq: ['$_id', '$$mediaId']
+                                            }
+                                        }},
+                                        {$project: {
+                                            mimetype: 1,
+                                            url: 1
+                                        }}
+                                    ],
+                                    as: 'media'
+                                }},
+                                {
+                                    $unwind: {
+                                        path : '$media',
+                                        preserveNullAndEmptyArrays: true
+                                    }
+                                },
+                                {$project: {
+                                    _id: 1,
+                                    username: 1,
+                                    media: {
+                                        $ifNull: ['$media', null]
+                                    }
+                                }}
+                            ],
+                            as: 'user'
+                        }},
+                        {
+                            $unwind: {
+                                path : '$user',
+                                preserveNullAndEmptyArrays: true
+                            }
+                        },
+                        {$sort: {
+                            createdAt : -1
+                        }},
+                        {$project: {
+                            _id : 1,
+                            user: 1,
+                            text: 1,
+                            createdAt: 1,
+                            updatedAt: 1
+                        }}
+                    ],
+                    as: 'comments'
                 }},
                 {$lookup: {
                     from: 'medias',
@@ -266,7 +536,11 @@ export default class UserController extends DTOValidator implements Routable
                 {$project: {
                     _id: 1,
                     description: 1,
-                    likes: 1,
+                    user: 1,
+                    comments: 1,
+                    likes: {
+                        $size: '$likes'
+                    },
                     media: {
                         $ifNull: ['$media', null]
                     },

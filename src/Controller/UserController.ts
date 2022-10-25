@@ -524,14 +524,74 @@ export default class UserController extends DTOValidator implements Routable
                                 preserveNullAndEmptyArrays: true
                             }
                         },
-                        {$project: {
-                            _id: 1,
-                            description: 1,
-                            media: {
-                                $ifNull: ['$media', null]
-                            },
-                            createdAt: 1,
-                            likes: 1
+                        {$lookup: {
+                            from: 'comments',
+                            let: {'postId': '$_id'},
+                            pipeline: [
+                                {$match: {
+                                    $expr: {
+                                        $eq: ['$post', '$$postId']
+                                    }
+                                }},
+                                {$lookup: {
+                                    from: 'users',
+                                    let: {'userId': '$user'},
+                                    pipeline: [
+                                        {$match: {
+                                            $expr: {
+                                                $eq: ['$_id', '$$userId']
+                                            }
+                                        }},
+                                        {$lookup: {
+                                            from: 'medias',
+                                            let: {'mediaId': '$media'},
+                                            pipeline: [
+                                                {$match: {
+                                                    $expr: {
+                                                        $eq: ['$_id', '$$mediaId']
+                                                    }
+                                                }},
+                                                {$project: {
+                                                    mimetype: 1,
+                                                    url: 1
+                                                }}
+                                            ],
+                                            as: 'media'
+                                        }},
+                                        {
+                                            $unwind: {
+                                                path : '$media',
+                                                preserveNullAndEmptyArrays: true
+                                            }
+                                        },
+                                        {$project: {
+                                            _id: 1,
+                                            username: 1,
+                                            media: {
+                                                $ifNull: ['$media', null]
+                                            }
+                                        }}
+                                    ],
+                                    as: 'user'
+                                }},
+                                {
+                                    $unwind: {
+                                        path : '$user',
+                                        preserveNullAndEmptyArrays: true
+                                    }
+                                },
+                                {$sort: {
+                                    createdAt : -1
+                                }},
+                                {$project: {
+                                    _id : 1,
+                                    user: 1,
+                                    text: 1,
+                                    createdAt: 1,
+                                    updatedAt: 1
+                                }}
+                            ],
+                            as: 'comments'
                         }},
                         {$addFields: { 
                             isLiked: { 
@@ -541,7 +601,20 @@ export default class UserController extends DTOValidator implements Routable
                                     false
                                 ]
                             }
-                        }}
+                        }},
+                        {$project: {
+                            _id: 1,
+                            description: 1,
+                            comments: 1,
+                            media: {
+                                $ifNull: ['$media', null]
+                            },
+                            createdAt: 1,
+                            likes: {
+                                $size: '$likes'
+                            },
+                            isLiked: 1
+                        }},
                     ],
                     as: 'posts'
                 }},
@@ -568,15 +641,29 @@ export default class UserController extends DTOValidator implements Routable
                         preserveNullAndEmptyArrays: true,
                     }
                 },
+                {$addFields: { 
+                    isFollower: { 
+                        $cond: [ 
+                            { $in: [ request.session.user.id, '$followers' ] },
+                            true, 
+                            false
+                        ]
+                    }
+                }},
                 {$project: {
                     _id: 1,
                     username: 1,
                     description: 1,
-                    followers: 1,
-                    following: 1,
+                    followers: {
+                        $size: '$followers'
+                    },
+                    following: {
+                        $size: '$following'
+                    },
                     media: {
                         $ifNull: ['$media', null]
                     },
+                    isFollower: 1,
                     posts: 1,
                     createdAt: 1
                 }}

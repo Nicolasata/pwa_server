@@ -1,4 +1,4 @@
-import { Document, Schema, Types, model  } from 'mongoose';
+import { Document, Schema, Types, model } from 'mongoose';
 
 interface IKeys extends Document {
     auth: string;
