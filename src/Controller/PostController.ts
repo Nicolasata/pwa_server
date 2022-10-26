@@ -654,16 +654,6 @@ export default class PostController extends DTOValidator implements Routable
                     throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
 
-            } else if (!data.isLiked && isLiked){
-
-                if (!await Post.updateOne({_id: post._id}, {$pull: {likes: user._id}})){
-                    throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
-                }
-
-                if (!await User.updateOne({_id: user._id}, {$pull: {likes: post._id}})){
-                    throw(new Error(`Failed to updateOne User with _id ${user._id}`));
-                }
-
                 const subscriptions = await Subscription.find(
                     { user: post.user },
                     { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
@@ -677,6 +667,16 @@ export default class PostController extends DTOValidator implements Routable
                             url: `${process.env.FRONT_URL}/post/${post._id}`
                         }));
                     }
+                }
+
+            } else if (!data.isLiked && isLiked){
+
+                if (!await Post.updateOne({_id: post._id}, {$pull: {likes: user._id}})){
+                    throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
+                }
+
+                if (!await User.updateOne({_id: user._id}, {$pull: {likes: post._id}})){
+                    throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
             }
 

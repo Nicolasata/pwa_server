@@ -225,7 +225,7 @@ export default class UserController extends DTOValidator implements Routable
             }
 
             if (!await User.updateOne({_id: request.session.user.id}, {$set: data})){
-                throw(new Error(`Failed to updateOne Post with _id ${request.session.user.id}`));
+                throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
             }
 
             response
@@ -311,7 +311,7 @@ export default class UserController extends DTOValidator implements Routable
             //@ts-ignore
             if (!await User.updateMany({_id: user.following}, {$pull: {followers: user._id}})){
                 //@ts-ignore
-                throw(new Error(`Failed to updateMany Users with _ids ${user.following.join()}`));
+                throw(new Error(`Failed to updateMany User with _ids ${user.following.join()}`));
             }
 
             //@ts-ignore
