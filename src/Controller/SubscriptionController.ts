@@ -1,20 +1,18 @@
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
-import DTOValidator from '../Class/DTOValidator';
+import DTOValidator from '../Middlewares/DTOValidator';
 
 import { Subscription } from '../Schema/SubscriptionSchema';
-import { plainToInstance } from 'class-transformer';
 import { Save } from '../DTO/SubscriptionDTO';
 import { Router, Response, Request } from 'express';
 
-export default class SubscriptionController extends DTOValidator implements Routable
+export default class SubscriptionController implements Routable
 {
     route: string;
     router: Router;
     constructor()
     {
-        super();
         this.router = Router();
         this.route = '/subscription';
     }
@@ -22,7 +20,7 @@ export default class SubscriptionController extends DTOValidator implements Rout
     initialiseRouter()
     {
         this.router.get('/getPublicKey', this.getPublicKey);
-        this.router.post('/save', this.save);
+        this.router.post('/save', DTOValidator(Save), this.save);
     }
 
     save = async (request: Request, response: Response) =>
@@ -33,13 +31,7 @@ export default class SubscriptionController extends DTOValidator implements Rout
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(Save, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
+            const data = request.body;
             const newSubscription = new Subscription({
                 user: request.session.user.id,
                 ...data

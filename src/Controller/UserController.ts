@@ -5,25 +5,23 @@ import { Subscription } from '../Schema/SubscriptionSchema';
 import { Comment } from '../Schema/CommentSchema';
 
 import ServerException from '../Exception/ServerException';
-import DTOValidator from '../Class/DTOValidator';
+import DTOValidator from '../Middlewares/DTOValidator';
 import Routable from '../Interface/Routable';
 
 import { hash, genSalt, compare } from 'bcrypt';
 import { randomBytes } from 'crypto';
-import { plainToInstance } from 'class-transformer';
 import { existsSync, unlinkSync } from 'fs';
 import { sendNotification } from 'web-push';
 import { Router, Response, Request } from 'express';
 import { Save, Login, Follow, Edit } from '../DTO/UserDTO';
 import multer, { diskStorage } from 'multer';
 
-export default class UserController extends DTOValidator implements Routable
+export default class UserController implements Routable
 {
     route: string;
     router: Router;
     constructor()
     {
-        super();
         this.router = Router();
         this.route = '/user';
     }
@@ -41,14 +39,14 @@ export default class UserController extends DTOValidator implements Routable
             })
         });
 
-        this.router.post('/save', this.save);
-        this.router.post('/login', this.login);
-        this.router.post('/follow', this.follow);
-        this.router.post('/unfollow', this.unfollow);
+        this.router.post('/save', DTOValidator(Save), this.save);
+        this.router.post('/login', DTOValidator(Login), this.login);
+        this.router.post('/follow', DTOValidator(Follow), this.follow);
+        this.router.post('/unfollow', DTOValidator(Follow), this.unfollow);
         this.router.get('/fingerprint', this.fingerprint);
         this.router.get('/getCurrentUser', this.getCurrentUser);
         this.router.get('/getWebProfile/:username', this.getWebProfile);
-        this.router.put('/edit', upload.single('media'), this.edit);
+        this.router.put('/edit', upload.single('media'), DTOValidator(Edit), this.edit);
         this.router.delete('/delete', this.delete);
     }
 
@@ -112,12 +110,7 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            const data = plainToInstance(Save, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
+            const data = request.body;
 
             if (await User.exists({
                 $or: [
@@ -161,20 +154,12 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(Edit, request.body);
-
+            const data = request.body;
             if (data.username === undefined && data.description === undefined && request.file === undefined){
                 throw(new ServerException(['you must include one of the following parameters: username, description, media'], 400));
             }
 
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
             const user = await User.findById(request.session.user.id).populate('media');
-
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
@@ -312,13 +297,7 @@ export default class UserController extends DTOValidator implements Routable
     {
         try {
 
-            const data = plainToInstance(Login, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
+            const data = request.body;
             const user = await User.findOne({
                 $or: [
                     { email: data.identifier },
@@ -650,12 +629,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(Follow, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
+            const data = request.body;
 
             if (user._id.equals(data.userId)){
                 throw(new ServerException(['Prohibited'], 403));
@@ -718,12 +692,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(Follow, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
+            const data = request.body;
 
             if (!await User.exists({_id: data.userId})){
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));

@@ -5,9 +5,8 @@ import { Subscription } from '../Schema/SubscriptionSchema';
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
-import DTOValidator from '../Class/DTOValidator';
+import DTOValidator from '../Middlewares/DTOValidator';
 
-import { plainToInstance } from 'class-transformer';
 import { existsSync, unlinkSync } from 'fs';
 import { Types } from 'mongoose';
 import { sendNotification } from 'web-push';
@@ -15,13 +14,12 @@ import { Save, Edit, Like } from '../DTO/PostDTO';
 import { Router, Response, Request } from 'express';
 import multer, { diskStorage } from 'multer';
 
-export default class PostController extends DTOValidator implements Routable
+export default class PostController implements Routable
 {
     route: string;
     router: Router;
     constructor()
     {
-        super();
         this.router = Router();
         this.route = '/post';
     }
@@ -36,14 +34,14 @@ export default class PostController extends DTOValidator implements Routable
                 filename: (request, file, callback) => {
                     callback(null, `${Date.now()}_${file.originalname}`);
                 }
-            })
+            }),
         });
 
         this.router.get('/getPosts', this.getPosts);
         this.router.get('/getPost/:postId', this.getPost);
-        this.router.post('/save', upload.single('media'), this.save);
-        this.router.put('/edit/:postId', this.edit);
-        this.router.put('/like/:postId', this.like);
+        this.router.post('/save', upload.single('media'), DTOValidator(Save), this.save);
+        this.router.put('/edit/:postId', DTOValidator(Edit), this.edit);
+        this.router.put('/like/:postId', DTOValidator(Like), this.like);
         this.router.delete('/delete/:postId', this.delete);
     }
 
@@ -62,13 +60,6 @@ export default class PostController extends DTOValidator implements Routable
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
-            }
-
-            const data = plainToInstance(Save, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
             }
 
             if (!request.file){
@@ -93,6 +84,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new Error('Failed to save Media'));
             }
 
+            const data = request.body;
             const newPost = new Post({
                 user: user._id,
                 media: newMedia._id,
@@ -571,13 +563,6 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(Edit, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
             const post = await Post.findById(request.params.postId);
 
             if (!post){
@@ -588,6 +573,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException(['Prohibited'], 403));
             }
 
+            const data = request.body;
             if (!await Post.updateOne({_id: post._id}, {$set: data})){
                 throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
             }
@@ -623,19 +609,13 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(Like, request.body);
-            const errors = await super.validateDTO(data);
-
-            if (errors?.length){
-                throw(new ServerException(errors, 400));
-            }
-
             const post = await Post.findById(request.params.postId);
 
             if (!post){
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
+            const data = request.body;
             const isLiked = post.likes.includes(user._id);
 
             if (data.isLiked && !isLiked){

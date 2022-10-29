@@ -1,5 +1,6 @@
 import { HasNumber } from './CustomDecorator/HasNumber';
 import { HasUppercase } from './CustomDecorator/HasUppercase';
+import { Trim } from 'class-sanitizer';
 import {
     IsString,
     IsOptional,
@@ -14,12 +15,14 @@ export class Save
     @IsDefined()
     @IsString()
     @IsNotEmpty()
+    @Trim()
     username: string;
 
     @IsDefined()
     @IsString()
     @IsEmail()
     @IsNotEmpty()
+    @Trim()
     email: string;
 
     @IsDefined()
