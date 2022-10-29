@@ -3,16 +3,17 @@ import mongoose, { ConnectOptions } from 'mongoose';
 import { setVapidDetails } from 'web-push';
 import { join, resolve } from 'path';
 import Routable from './Interface/Routable'
-import * as cookieParser from 'cookie-parser';
-import * as session from 'express-session';
-import * as cors from 'cors';
-import * as connectMongoDBSession from 'connect-mongodb-session';
-import * as express from 'express';
+import MongoStore from 'connect-mongo';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import express, { Application as ExpressApplication } from 'express';
+
 import 'reflect-metadata'
 
 export default class Application
 {
-    public application: express.Application;
+    public application: ExpressApplication;
     public controllers: Routable[];
 
     constructor(controllers: Routable[])
@@ -51,14 +52,15 @@ export default class Application
             origin : true,
             credentials: true
         }));
-        const mongoDbSession = connectMongoDBSession(session);
         this.application.use(session({
             secret: process.env.SESSION_SECRET,
             resave: false,
             saveUninitialized: false,
-            store: new mongoDbSession({
-                uri: process.env.MONGODB_URI,
-                collection: 'sessions'
+            store: MongoStore.create({
+                mongoUrl: process.env.MONGODB_URI,
+                crypto: {
+                    secret: process.env.MONGO_STORE_SECRET
+                }
             })
         }));
     }

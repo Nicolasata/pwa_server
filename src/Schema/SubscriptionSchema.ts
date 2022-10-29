@@ -1,12 +1,15 @@
-import { Document, Schema, Types, model } from 'mongoose';
+import { Document, Schema, model } from 'mongoose';
+import { IUser } from './UserSchema';
 
-interface IKeys extends Document {
+interface IKeys
+{
     auth: string;
     p256dh: string;
 }
 
-interface ISubscription extends Document {
-    user: Types.ObjectId;
+export interface ISubscription extends Document
+{
+    user: IUser;
     endpoint: string;
     keys: IKeys
 };
@@ -42,6 +45,4 @@ const SubscriptionSchema = new Schema<ISubscription>({
     collection: 'subscriptions'
 });
 
-const SubscriptionModel = model<ISubscription>('Subscription', SubscriptionSchema);
-
-export default SubscriptionModel;
+export const Subscription = model<ISubscription>('Subscription', SubscriptionSchema);

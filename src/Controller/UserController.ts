@@ -1,8 +1,8 @@
-import User from '../Schema/UserSchema';
-import Media from '../Schema/MediaSchema';
-import Post from '../Schema/PostSchema';
-import Comment from '../Schema/CommentSchema';
-import Subscription from '../Schema/SubscriptionSchema';
+import { User } from '../Schema/UserSchema';
+import { Media } from '../Schema/MediaSchema';
+import { Post } from '../Schema/PostSchema';
+import { Subscription } from '../Schema/SubscriptionSchema';
+import { Comment } from '../Schema/CommentSchema';
 
 import ServerException from '../Exception/ServerException';
 import DTOValidator from '../Class/DTOValidator';
@@ -12,41 +12,33 @@ import { hash, genSalt, compare } from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { plainToInstance } from 'class-transformer';
 import { existsSync, unlinkSync } from 'fs';
-import { Types } from 'mongoose';
 import { sendNotification } from 'web-push';
-
-import SaveDTO from '../DTO/User/Save';
-import LoginDTO from '../DTO/User/Login';
-import FollowDTO from '../DTO/User/Follow';
-import EditDTO from '../DTO/User/Edit';
-
-import * as express from 'express';
-import * as multer from 'multer';
+import { Router, Response, Request } from 'express';
+import { Save, Login, Follow, Edit } from '../DTO/UserDTO';
+import multer, { diskStorage } from 'multer';
 
 export default class UserController extends DTOValidator implements Routable
 {
     route: string;
-    router: express.Router;
+    router: Router;
     constructor()
     {
         super();
-        this.router = express.Router();
+        this.router = Router();
         this.route = '/user';
     }
 
     initialiseRouter()
     {
-        const diskStorage = multer.diskStorage({
-            destination: (request, file, callback) => {
-                callback(null, './public/uploads/');
-            },
-            filename: (request, file, callback) => {
-                callback(null, `${Date.now()}_${file.originalname}`);
-            }
-        });
-
         const upload = multer({
-            storage: diskStorage
+            storage: diskStorage({
+                destination: (request, file, callback) => {
+                    callback(null, './public/uploads/');
+                },
+                filename: (request, file, callback) => {
+                    callback(null, `${Date.now()}_${file.originalname}`);
+                }
+            })
         });
 
         this.router.post('/save', this.save);
@@ -75,7 +67,7 @@ export default class UserController extends DTOValidator implements Routable
         return (null);
     }
 
-    fingerprint = async (request: express.Request, response: express.Response) =>
+    fingerprint = async (request: Request, response: Response) =>
     {
         try {
 
@@ -116,11 +108,11 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    save = async (request: express.Request, response: express.Response) =>
+    save = async (request: Request, response: Response) =>
     {
         try {
 
-            const data = plainToInstance(SaveDTO, request.body);
+            const data = plainToInstance(Save, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -161,7 +153,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    edit = async (request: express.Request, response: express.Response) =>
+    edit = async (request: Request, response: Response) =>
     {
         try {
 
@@ -169,7 +161,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(EditDTO, request.body);
+            const data = plainToInstance(Edit, request.body);
 
             if (data.username === undefined && data.description === undefined && request.file === undefined){
                 throw(new ServerException(['you must include one of the following parameters: username, description, media'], 400));
@@ -212,9 +204,7 @@ export default class UserController extends DTOValidator implements Routable
 
                 if (user.media){
 
-                    //@ts-ignore
                     if (existsSync(user.media.location)){
-                        //@ts-ignore
                         unlinkSync(user.media.location);
                     }
 
@@ -246,7 +236,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    delete = async (request: express.Request, response: express.Response) =>
+    delete = async (request: Request, response: Response) =>
     {
         try {
 
@@ -270,53 +260,37 @@ export default class UserController extends DTOValidator implements Routable
 
             if (medias?.length){
                 for (const media of medias){
-                    //@ts-ignore
                     if (existsSync(media.location)){
-                        //@ts-ignore
                         unlinkSync(media.location);
                     }
                 }
             }
 
-            //@ts-ignore
             if (!await Post.deleteMany({user: user._id})){
-                //@ts-ignore
                 throw(new Error(`Failed to deleteMany Post of User with _id ${user._id}`));
             }
 
-            //@ts-ignore
             if (!await Post.updateMany({_id: user.likes}, {$pull: {likes: user._id}})){
-                //@ts-ignore
                 throw(new Error(`Failed to deleteMany Post of User with _id ${user._id}`));
             }
 
-            //@ts-ignore
             if (!await Media.deleteMany({user: user._id})){
-                //@ts-ignore
                 throw(new Error(`Failed to deleteMany Media of User with _id ${user._id}`));
             }
 
-            //@ts-ignore
             if (!await Subscription.deleteMany({user: user._id})){
-                //@ts-ignore
                 throw(new Error(`Failed to deleteMany Subscription of User with _id ${user._id}`));
             }
 
-            //@ts-ignore
             if (!await Comment.deleteMany({user: user._id})){
-                //@ts-ignore
                 throw(new Error(`Failed to deleteMany Comment of User with _id ${user._id}`));
             }
 
-            //@ts-ignore
             if (!await User.updateMany({_id: user.following}, {$pull: {followers: user._id}})){
-                //@ts-ignore
                 throw(new Error(`Failed to updateMany User with _ids ${user.following.join()}`));
             }
 
-            //@ts-ignore
             if (!await User.updateOne({_id: user._id}, {$set: {deletedAt: new Date}})){
-                //@ts-ignore
                 throw(new Error(`Failed to updateOne User with _id ${user._id}`));
             }
 
@@ -334,11 +308,11 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    login = async (request: express.Request, response: express.Response) =>
+    login = async (request: Request, response: Response) =>
     {
         try {
 
-            const data = plainToInstance(LoginDTO, request.body);
+            const data = plainToInstance(Login, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -388,7 +362,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    getWebProfile = async (request: express.Request, response: express.Response) =>
+    getWebProfile = async (request: Request, response: Response) =>
     {
         try {
 
@@ -597,7 +571,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    getCurrentUser = async (request: express.Request, response: express.Response) =>
+    getCurrentUser = async (request: Request, response: Response) =>
     {
         try {
 
@@ -659,7 +633,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    follow = async (request: express.Request, response: express.Response) =>
+    follow = async (request: Request, response: Response) =>
     {
         try {
 
@@ -676,7 +650,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(FollowDTO, request.body);
+            const data = plainToInstance(Follow, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -736,7 +710,7 @@ export default class UserController extends DTOValidator implements Routable
         }
     }
 
-    unfollow = async (request: express.Request, response: express.Response) =>
+    unfollow = async (request: Request, response: Response) =>
     {
         try {
 
@@ -744,7 +718,7 @@ export default class UserController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(FollowDTO, request.body);
+            const data = plainToInstance(Follow, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){

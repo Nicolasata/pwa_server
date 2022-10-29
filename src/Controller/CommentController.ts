@@ -1,7 +1,7 @@
-import Post from '../Schema/PostSchema';
-import Comment from '../Schema/CommentSchema';
-import Subscription from '../Schema/SubscriptionSchema';
-import User from '../Schema/UserSchema';
+import { Post } from '../Schema/PostSchema';
+import { Comment } from '../Schema/CommentSchema';
+import { Subscription } from '../Schema/SubscriptionSchema';
+import { User } from '../Schema/UserSchema';
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
@@ -9,20 +9,17 @@ import DTOValidator from '../Class/DTOValidator';
 
 import { plainToInstance } from 'class-transformer';
 import { sendNotification } from 'web-push';
-
-import SaveDTO from '../DTO/Comment/Save';
-import EditDTO from '../DTO/Comment/Edit';
-
-import * as express from 'express';
+import { Save, Edit } from '../DTO/CommentDTO';
+import { Router, Response, Request } from 'express';
 
 export default class CommentController extends DTOValidator implements Routable
 {
     route: string;
-    router: express.Router;
+    router: Router;
     constructor()
     {
         super();
-        this.router = express.Router();
+        this.router = Router();
         this.route = '/comment';
     }
 
@@ -33,7 +30,7 @@ export default class CommentController extends DTOValidator implements Routable
         this.router.delete('/delete/:commentId', this.delete);
     }
 
-    save = async (request: express.Request, response: express.Response) =>
+    save = async (request: Request, response: Response) =>
     {
         try {
 
@@ -50,7 +47,7 @@ export default class CommentController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(SaveDTO, request.body);
+            const data = plainToInstance(Save, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -104,7 +101,7 @@ export default class CommentController extends DTOValidator implements Routable
         }
     }
 
-    edit = async (request: express.Request, response: express.Response) =>
+    edit = async (request: Request, response: Response) =>
     {
         try {
 
@@ -112,7 +109,7 @@ export default class CommentController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(EditDTO, request.body);
+            const data = plainToInstance(Edit, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -125,7 +122,7 @@ export default class CommentController extends DTOValidator implements Routable
                 throw(new ServerException([`comment ${request.params.commentId} does not exist`], 400));
             }
 
-            if (!comment.user.equals(request.session.user.id)){
+            if (!comment.user._id.equals(request.session.user.id)){
                 throw(new ServerException(['Prohibited'], 403));
             }
 
@@ -147,7 +144,7 @@ export default class CommentController extends DTOValidator implements Routable
         }
     }
 
-    delete = async (request: express.Request, response: express.Response) =>
+    delete = async (request: Request, response: Response) =>
     {
         try {
 
@@ -161,7 +158,7 @@ export default class CommentController extends DTOValidator implements Routable
                 throw(new ServerException([`comment ${request.params.commentId} does not exist`], 400));
             }
 
-            if (!comment.user.equals(request.session.user.id)){
+            if (!comment.user._id.equals(request.session.user.id)){
                 throw(new ServerException(['Prohibited'], 403));
             }
 

@@ -1,7 +1,7 @@
-import Post from '../Schema/PostSchema';
-import User from '../Schema/UserSchema';
-import Media from '../Schema/MediaSchema';
-import Subscription from '../Schema/SubscriptionSchema';
+import { Post } from '../Schema/PostSchema';
+import { User } from '../Schema/UserSchema';
+import { Media } from '../Schema/MediaSchema';
+import { Subscription } from '../Schema/SubscriptionSchema';
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
@@ -11,38 +11,32 @@ import { plainToInstance } from 'class-transformer';
 import { existsSync, unlinkSync } from 'fs';
 import { Types } from 'mongoose';
 import { sendNotification } from 'web-push';
-
-import SaveDTO from '../DTO/Post/Save';
-import EditDTO from '../DTO/Post/Edit';
-import LikeDTO from '../DTO/Post/Like';
-
-import * as express from 'express';
-import * as multer from 'multer';
+import { Save, Edit, Like } from '../DTO/PostDTO';
+import { Router, Response, Request } from 'express';
+import multer, { diskStorage } from 'multer';
 
 export default class PostController extends DTOValidator implements Routable
 {
     route: string;
-    router: express.Router;
+    router: Router;
     constructor()
     {
         super();
-        this.router = express.Router();
+        this.router = Router();
         this.route = '/post';
     }
 
     initialiseRouter()
     {
-        const diskStorage = multer.diskStorage({
-            destination: (request, file, callback) => {
-                callback(null, './public/uploads/');
-            },
-            filename: (request, file, callback) => {
-                callback(null, `${Date.now()}_${file.originalname}`);
-            }
-        });
-
         const upload = multer({
-            storage: diskStorage
+            storage: diskStorage({
+                destination: (request, file, callback) => {
+                    callback(null, './public/uploads/');
+                },
+                filename: (request, file, callback) => {
+                    callback(null, `${Date.now()}_${file.originalname}`);
+                }
+            })
         });
 
         this.router.get('/getPosts', this.getPosts);
@@ -53,7 +47,7 @@ export default class PostController extends DTOValidator implements Routable
         this.router.delete('/delete/:postId', this.delete);
     }
 
-    save = async (request: express.Request, response: express.Response) =>
+    save = async (request: Request, response: Response) =>
     {
         try {
 
@@ -70,7 +64,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(SaveDTO, request.body);
+            const data = plainToInstance(Save, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -149,7 +143,7 @@ export default class PostController extends DTOValidator implements Routable
         }
     }
 
-    getPosts = async (request: express.Request, response: express.Response) =>
+    getPosts = async (request: Request, response: Response) =>
     {
         try {
 
@@ -356,7 +350,7 @@ export default class PostController extends DTOValidator implements Routable
         }
     }
 
-    getPost = async (request: express.Request, response: express.Response) =>
+    getPost = async (request: Request, response: Response) =>
     {
         try {
 
@@ -569,7 +563,7 @@ export default class PostController extends DTOValidator implements Routable
         }
     }
 
-    edit = async (request: express.Request, response: express.Response) =>
+    edit = async (request: Request, response: Response) =>
     {
         try {
 
@@ -577,7 +571,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(EditDTO, request.body);
+            const data = plainToInstance(Edit, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -590,7 +584,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
-            if (!post.user.equals(request.session.user.id)){
+            if (!post.user._id.equals(request.session.user.id)){
                 throw(new ServerException(['Prohibited'], 403));
             }
 
@@ -612,7 +606,7 @@ export default class PostController extends DTOValidator implements Routable
         }
     }
 
-    like = async (request: express.Request, response: express.Response) =>
+    like = async (request: Request, response: Response) =>
     {
         try {
 
@@ -629,7 +623,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(LikeDTO, request.body);
+            const data = plainToInstance(Like, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -694,7 +688,7 @@ export default class PostController extends DTOValidator implements Routable
         }
     }
 
-    delete = async (request: express.Request, response: express.Response) =>
+    delete = async (request: Request, response: Response) =>
     {
         try {
 
@@ -708,7 +702,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
-            if (!post.user.equals(request.session.user.id)){
+            if (!post.user._id.equals(request.session.user.id)){
                 throw(new ServerException(['Prohibited'], 403));
             }
 
@@ -716,9 +710,7 @@ export default class PostController extends DTOValidator implements Routable
                 throw(new Error(`Failed to deleteOne Media with _id ${post.media}`));
             }
 
-            //@ts-ignore
             if (existsSync(post.media.location)){
-                //@ts-ignore
                 unlinkSync(post.media.location);
             }
 

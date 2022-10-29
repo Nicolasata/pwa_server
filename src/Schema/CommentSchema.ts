@@ -1,8 +1,11 @@
-import { Document, Schema, Types, model } from 'mongoose';
+import { Document, Schema, model } from 'mongoose';
+import { IPost } from './PostSchema';
+import { IUser } from './UserSchema';
 
-interface IComment extends Document {
-    user: Types.ObjectId;
-    post: Types.ObjectId;
+export interface IComment extends Document
+{
+    user: IUser;
+    post: IPost;
     text: string;
 };
 
@@ -27,6 +30,4 @@ const CommentSchema = new Schema<IComment>({
     collection: 'comments'
 });
 
-const PostModel = model<IComment>('Comment', CommentSchema);
-
-export default PostModel;
+export const Comment = model<IComment>('Comment', CommentSchema);

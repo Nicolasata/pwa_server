@@ -1,7 +1,8 @@
 import { Document, Schema, Types, model } from 'mongoose';
+import { IUser } from './UserSchema';
 
-interface IMedia extends Document {
-    user: Types.ObjectId;
+export interface IMedia extends Document {
+    user: IUser;
     mimetype: string;
     filename: string;
     originalName: string;
@@ -46,6 +47,4 @@ const MediaSchema = new Schema<IMedia>({
     collection: 'medias'
 });
 
-const MediaModel = model<IMedia>('Media', MediaSchema);
-
-export default MediaModel;
+export const Media = model<IMedia>('Media', MediaSchema);

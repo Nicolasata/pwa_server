@@ -1,14 +1,18 @@
-import { Document, Schema, Types, model } from 'mongoose';
+import { Document, Schema, model } from 'mongoose';
+import { IMedia } from './MediaSchema'
+import { ISubscription } from './SubscriptionSchema';
 
-interface IUser extends Document {
+export interface IUser extends Document
+{
     username: string;
     password: string;
     description: string;
     email: string;
-    media: Types.ObjectId;
-    followers: Types.ObjectId[],
-    following: Types.ObjectId[],
-    likes: Types.ObjectId[],
+    media: IMedia;
+    followers: IUser[],
+    following: IUser[],
+    likes: IUser[],
+    subscriptions?: ISubscription[],
     deletedAt: Date;
 };
 
@@ -49,6 +53,11 @@ const UserSchema = new Schema<IUser>({
         ref: 'Post',
         default: []
     },
+    subscriptions: {
+        type: [Schema.Types.ObjectId],
+        ref: 'Subscription',
+        default: []
+    },
     deletedAt: {
         type: Date,
         default: null
@@ -59,6 +68,4 @@ const UserSchema = new Schema<IUser>({
     collection: 'users'
 });
 
-const UserModel = model<IUser>('User', UserSchema);
-
-export default UserModel;
+export const User = model<IUser>('User', UserSchema);

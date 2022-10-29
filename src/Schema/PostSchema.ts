@@ -1,9 +1,12 @@
-import { Document, Schema, Types, model } from 'mongoose';
+import { Document, Schema, model } from 'mongoose';
+import { IMedia } from './MediaSchema';
+import { IUser } from './UserSchema';
 
-interface IPost extends Document {
-    user: Types.ObjectId;
-    media: Types.ObjectId;
-    likes: Types.ObjectId[];
+export interface IPost extends Document
+{
+    user: IUser;
+    media: IMedia;
+    likes: IUser[];
     description: string;
 };
 
@@ -33,6 +36,4 @@ const PostSchema = new Schema<IPost>({
     collection: 'posts'
 });
 
-const PostModel = model<IPost>('Post', PostSchema);
-
-export default PostModel;
+export const Post = model<IPost>('Post', PostSchema);

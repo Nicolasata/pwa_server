@@ -1,23 +1,21 @@
-import Subscription from '../Schema/SubscriptionSchema';
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Class/DTOValidator';
 
+import { Subscription } from '../Schema/SubscriptionSchema';
 import { plainToInstance } from 'class-transformer';
-
-import SaveDTO from '../DTO/Subscription/Save';
-
-import * as express from 'express';
+import { Save } from '../DTO/SubscriptionDTO';
+import { Router, Response, Request } from 'express';
 
 export default class SubscriptionController extends DTOValidator implements Routable
 {
     route: string;
-    router: express.Router;
+    router: Router;
     constructor()
     {
         super();
-        this.router = express.Router();
+        this.router = Router();
         this.route = '/subscription';
     }
 
@@ -27,7 +25,7 @@ export default class SubscriptionController extends DTOValidator implements Rout
         this.router.post('/save', this.save);
     }
 
-    save = async (request: express.Request, response: express.Response) =>
+    save = async (request: Request, response: Response) =>
     {
         try {
 
@@ -35,7 +33,7 @@ export default class SubscriptionController extends DTOValidator implements Rout
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = plainToInstance(SaveDTO, request.body);
+            const data = plainToInstance(Save, request.body);
             const errors = await super.validateDTO(data);
 
             if (errors?.length){
@@ -65,7 +63,7 @@ export default class SubscriptionController extends DTOValidator implements Rout
         }
     }
 
-    getPublicKey = async (request: express.Request, response: express.Response) =>
+    getPublicKey = async (request: Request, response: Response) =>
     {
         try {
 
