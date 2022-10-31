@@ -57,6 +57,11 @@ export class Edit
     @IsString()
     @IsNotEmpty()
     description: string;
+
+    @IsOptional()
+    @IsString()
+    @IsNotEmpty()
+    media: string;
 };
 
 export class Follow

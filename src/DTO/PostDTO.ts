@@ -10,6 +10,11 @@ export class Save
     @IsDefined()
     @IsString()
     @IsNotEmpty()
+    media: string;
+
+    @IsDefined()
+    @IsString()
+    @IsNotEmpty()
     description: string;
 };
 

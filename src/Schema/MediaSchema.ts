@@ -5,8 +5,8 @@ export interface IMedia extends Document {
     user: IUser;
     mimetype: string;
     filename: string;
-    originalName: string;
-    location: string;
+    originalname: string;
+    path: string;
     url: string;
     size: number;
 };
@@ -25,11 +25,11 @@ const MediaSchema = new Schema<IMedia>({
         type: String,
         required: true
     },
-    originalName: {
+    originalname: {
         type: String,
         required: true
     },
-    location: {
+    path: {
         type: String,
         required: true
     },

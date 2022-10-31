@@ -7,12 +7,11 @@ import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
 
-import { existsSync, unlinkSync } from 'fs';
 import { Types } from 'mongoose';
 import { sendNotification } from 'web-push';
 import { Save, Edit, Like } from '../DTO/PostDTO';
 import { Router, Response, Request } from 'express';
-import multer, { diskStorage } from 'multer';
+import { existsSync, unlinkSync } from 'fs';
 
 export default class PostController implements Routable
 {
@@ -26,22 +25,11 @@ export default class PostController implements Routable
 
     initialiseRouter()
     {
-        const upload = multer({
-            storage: diskStorage({
-                destination: (request, file, callback) => {
-                    callback(null, './public/uploads/');
-                },
-                filename: (request, file, callback) => {
-                    callback(null, `${Date.now()}_${file.originalname}`);
-                }
-            }),
-        });
-
-        this.router.get('/getPosts', this.getPosts);
-        this.router.get('/getPost/:postId', this.getPost);
-        this.router.post('/save', upload.single('media'), DTOValidator(Save), this.save);
+        this.router.post('/save', DTOValidator(Save), this.save);
         this.router.put('/edit/:postId', DTOValidator(Edit), this.edit);
         this.router.put('/like/:postId', DTOValidator(Like), this.like);
+        this.router.get('/getPosts', this.getPosts);
+        this.router.get('/getPost/:postId', this.getPost);
         this.router.delete('/delete/:postId', this.delete);
     }
 
@@ -62,32 +50,22 @@ export default class PostController implements Routable
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            if (!request.file){
-                throw(new ServerException(['media should not be undefined'], 400));
-            }
-
-            if (!existsSync(request.file.path)){
-                throw(new Error(`Failed to upload file of type ${request.file.mimetype}`));
-            }
-
-            const newMedia = new Media({
-                user: user._id,
-                mimetype: request.file.mimetype,
-                filename: request.file.filename,
-                originalName: request.file.originalname,
-                location: request.file.path,
-                url: `${process.env.SERVER_URL}/media/${request.file.filename}`,
-                size: request.file.size
+            const data = request.body;
+            const media = await Media.findById(data.media, {
+                _id: 1, path: 1, url: 1, mimetype: 1
             });
 
-            if (!await newMedia.save()){
-                throw(new Error('Failed to save Media'));
+            if (!media) {
+                throw new ServerException([`Media with _id ${request.params.mediaId} does not exists`], 400);
+            }
+    
+            if (!existsSync(media.path)){
+                throw new ServerException([`Media with _id ${request.params.mediaId} does not exists`], 400);
             }
 
-            const data = request.body;
             const newPost = new Post({
                 user: user._id,
-                media: newMedia._id,
+                media: media._id,
                 ...data
             });
 
@@ -115,8 +93,8 @@ export default class PostController implements Routable
             .send({
                 _id: newPost._id,
                 media: {
-                    url: newMedia.url,
-                    mimetype: newMedia.mimetype
+                    url: media.url,
+                    mimetype: media.mimetype
                 },
                 description: newPost.description
             });
@@ -690,8 +668,8 @@ export default class PostController implements Routable
                 throw(new Error(`Failed to deleteOne Media with _id ${post.media}`));
             }
 
-            if (existsSync(post.media.location)){
-                unlinkSync(post.media.location);
+            if (existsSync(post.media.path)){
+                unlinkSync(post.media.path);
             }
 
             if (!await Post.deleteOne({_id: post._id})){

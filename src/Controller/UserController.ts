@@ -14,96 +14,24 @@ import { existsSync, unlinkSync } from 'fs';
 import { sendNotification } from 'web-push';
 import { Router, Response, Request } from 'express';
 import { Save, Login, Follow, Edit } from '../DTO/UserDTO';
-import multer, { diskStorage } from 'multer';
 
-export default class UserController implements Routable
-{
+export default class UserController implements Routable {
     route: string;
     router: Router;
-    constructor()
-    {
+    constructor() {
         this.router = Router();
         this.route = '/user';
     }
 
-    initialiseRouter()
-    {
-        const upload = multer({
-            storage: diskStorage({
-                destination: (request, file, callback) => {
-                    callback(null, './public/uploads/');
-                },
-                filename: (request, file, callback) => {
-                    callback(null, `${Date.now()}_${file.originalname}`);
-                }
-            })
-        });
-
+    initialiseRouter() {
+        this.router.delete('/delete', this.delete);
+        this.router.put('/edit', DTOValidator(Edit), this.edit);
         this.router.post('/save', DTOValidator(Save), this.save);
         this.router.post('/login', DTOValidator(Login), this.login);
         this.router.post('/follow', DTOValidator(Follow), this.follow);
         this.router.post('/unfollow', DTOValidator(Follow), this.unfollow);
-        this.router.get('/fingerprint', this.fingerprint);
-        this.router.get('/getCurrentUser', this.getCurrentUser);
         this.router.get('/getWebProfile/:username', this.getWebProfile);
-        this.router.put('/edit', upload.single('media'), DTOValidator(Edit), this.edit);
-        this.router.delete('/delete', this.delete);
-    }
-
-    getCookie(name: string, cookies: string[])
-    {
-        name = `${name}=`;
-        for (let i = 0; i < cookies.length; i++) {
-            let cookie = cookies[i];
-            while (cookie.charAt(0) == ' ') {
-                cookie = cookie.substring(1);
-            }
-            if (cookie.indexOf(name) == 0) {
-                return cookie.substring(name.length, cookie.length);
-            }
-        }
-        return (null);
-    }
-
-    fingerprint = async (request: Request, response: Response) =>
-    {
-        try {
-
-            if (request.session.user){
-                if (!await User.exists({_id: request.session.user.id})){
-                    delete (request.session.user);
-                    const fingerprint = randomBytes(20).toString('hex');
-                    response.cookie('fingerprint', fingerprint);
-                    request.session.visitor = { 'fingerprint': fingerprint };
-                } else if (!this.getCookie('fingerprint', request.headers.cookie.split(';'))){
-                    const fingerprint = randomBytes(20).toString('hex');
-                    response.cookie('fingerprint', fingerprint);
-                    request.session.user.fingerprint = fingerprint;
-                }
-            } else if (request.session.visitor){
-                if (!this.getCookie('fingerprint', request.headers.cookie.split(';'))){
-                    const fingerprint = randomBytes(20).toString('hex');
-                    response.cookie('fingerprint', fingerprint);
-                    request.session.visitor.fingerprint = fingerprint;
-                }
-            } else {
-                const fingerprint = randomBytes(20).toString('hex');
-                response.cookie('fingerprint', fingerprint);
-                request.session.visitor = { 'fingerprint': fingerprint };
-            }
-
-            response
-            .status(204)
-            .send();
-
-        } catch(error){
-
-            response
-            .status(error instanceof ServerException ? error.httpCode : 500)
-            .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            });
-        }
+        this.router.get('/getCurrentUser', this.getCurrentUser);
     }
 
     save = async (request: Request, response: Response) =>
@@ -125,7 +53,7 @@ export default class UserController implements Routable
                 data.password,
                 await genSalt(parseInt(process.env.BCRYPT_SALT_ROUNDS))
             );
-            
+
             const newUser = new User(data);
 
             if (!await newUser.save()){
@@ -155,52 +83,51 @@ export default class UserController implements Routable
             }
 
             const data = request.body;
-            if (data.username === undefined && data.description === undefined && request.file === undefined){
+
+            if (!Object.keys(data).length){
                 throw(new ServerException(['you must include one of the following parameters: username, description, media'], 400));
             }
 
-            const user = await User.findById(request.session.user.id).populate('media');
-            if (!user){
+            const user = await User.findById(request.session.user.id, {
+                _id: 1, media: 1
+            });
+
+            if (!user) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            if (request.file){
+            if (data.media && user.media && !user.media._id.equals(data.media)) {
 
-                if (!existsSync(request.file.path)){
-                    throw(new Error(`Failed to upload file of type ${request.file.mimetype}`));
-                }
-
-                const newMedia = new Media({
-                    user: user._id,
-                    mimetype: request.file.mimetype,
-                    filename: request.file.filename,
-                    originalName: request.file.originalname,
-                    location: request.file.path,
-                    url: `${process.env.SERVER_URL}/media/${request.file.filename}`,
-                    size: request.file.size
+                const newMedia = await Media.findById(data.media, {
+                    _id: 1, path: 1
                 });
 
-                if (!await newMedia.save()){
-                    throw(new Error('Failed to save Media'));
+                if (!newMedia) {
+                    throw(new ServerException([`Media with _id ${data.media} does not exists`], 400));
                 }
 
-                //@ts-ignore
-                data.media = newMedia._id;
+                if (!existsSync(newMedia.path)) {
+                    throw(new ServerException([`Media with _id ${data.media} does not exists`], 400));
+                }
 
-                if (user.media){
+                const oldMedia = await Media.findById(user.media._id, {
+                    _id: 1, path: 1
+                });
 
-                    if (existsSync(user.media.location)){
-                        unlinkSync(user.media.location);
+                if (oldMedia) {
+
+                    if (existsSync(oldMedia.path)){
+                        unlinkSync(oldMedia.path);
                     }
 
-                    if (!await Media.deleteOne({_id: user.media._id})){
-                        throw(new Error(`Failed to deleteOne Media with _id ${user.media._id}`));
+                    if (!await Media.deleteOne({ _id: oldMedia._id })) {
+                        throw(new Error(`Failed to deleteById Media with _id ${oldMedia._id}`));
                     }
                 }
             }
 
-            if (!await User.updateOne({_id: request.session.user.id}, {$set: data})){
-                throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
+            if (!await User.updateOne({ _id: user._id }, { $set: data })) {
+                throw(new Error(`Failed to updateOne User with _id ${user._id}`));
             }
 
             response
@@ -208,10 +135,6 @@ export default class UserController implements Routable
             .send();
 
         } catch(error){
-
-            if (request.file && existsSync(request.file.path)){
-                unlinkSync(request.file.path);
-            }
 
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
@@ -225,7 +148,7 @@ export default class UserController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
+            if (!request.session?.user?.id) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -234,7 +157,7 @@ export default class UserController implements Routable
                 { _id: 1, following: 1, likes: 1 }
             );
 
-            if (!user){
+            if (!user) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -243,39 +166,39 @@ export default class UserController implements Routable
                 { location: 1 }
             );
 
-            if (medias?.length){
-                for (const media of medias){
-                    if (existsSync(media.location)){
-                        unlinkSync(media.location);
+            if (medias?.length) {
+                for (const media of medias) {
+                    if (existsSync(media.path)) {
+                        unlinkSync(media.path);
                     }
                 }
             }
 
-            if (!await Post.deleteMany({user: user._id})){
+            if (!await Post.deleteMany({ user: user._id })) {
                 throw(new Error(`Failed to deleteMany Post of User with _id ${user._id}`));
             }
 
-            if (!await Post.updateMany({_id: user.likes}, {$pull: {likes: user._id}})){
+            if (!await Post.updateMany({ _id: user.likes }, { $pull: { likes: user._id } })) {
                 throw(new Error(`Failed to deleteMany Post of User with _id ${user._id}`));
             }
 
-            if (!await Media.deleteMany({user: user._id})){
+            if (!await Media.deleteMany({ user: user._id })) {
                 throw(new Error(`Failed to deleteMany Media of User with _id ${user._id}`));
             }
 
-            if (!await Subscription.deleteMany({user: user._id})){
+            if (!await Subscription.deleteMany({ user: user._id })) {
                 throw(new Error(`Failed to deleteMany Subscription of User with _id ${user._id}`));
             }
 
-            if (!await Comment.deleteMany({user: user._id})){
+            if (!await Comment.deleteMany({ user: user._id })) {
                 throw(new Error(`Failed to deleteMany Comment of User with _id ${user._id}`));
             }
 
-            if (!await User.updateMany({_id: user.following}, {$pull: {followers: user._id}})){
+            if (!await User.updateMany({ _id: user.following }, { $pull: { followers: user._id } })) {
                 throw(new Error(`Failed to updateMany User with _ids ${user.following.join()}`));
             }
 
-            if (!await User.updateOne({_id: user._id}, {$set: {deletedAt: new Date}})){
+            if (!await User.updateOne({ _id: user._id }, { $set: { deletedAt: new Date } })) {
                 throw(new Error(`Failed to updateOne User with _id ${user._id}`));
             }
 
@@ -305,11 +228,11 @@ export default class UserController implements Routable
                 ]
             });
 
-            if (!user){
+            if (!user) {
                 throw(new ServerException(['Incorrect username or email'], 200));
             }
 
-            if (!await compare(data.password, user.password)){
+            if (!await compare(data.password, user.password)) {
                 throw(new ServerException(['Incorrect username or email'], 200));
             }
 
@@ -345,192 +268,238 @@ export default class UserController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
+            if (!request.session?.user?.id) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
             const webProfile = await User.aggregate([
-                {$match: {
-                    username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
-                }},
-                {$lookup: {
-                    from: 'posts',
-                    let: {'userId': '$_id'},
-                    pipeline: [
-                        {$match: {
-                            $expr: {
-                                $eq: ['$user', '$$userId']
-                            }
-                        }},
-                        {$lookup: {
-                            from: 'medias',
-                            let: {'mediaId': '$media'},
-                            pipeline: [
-                                {$match: {
+                {
+                    $match: {
+                        username: { $regex: new RegExp(`\\b${request.params.username}\\b`, 'i') }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'posts',
+                        let: { 'userId': '$_id' },
+                        pipeline: [
+                            {
+                                $match: {
                                     $expr: {
-                                        $eq: ['$_id', '$$mediaId']
+                                        $eq: ['$user', '$$userId']
                                     }
-                                }},
-                                {$project: {
-                                    _id: 1,
-                                    mimetype: 1,
-                                    url: 1
-                                }}
-                            ],
-                            as: 'media'
-                        }},
-                        {
-                            $unwind: {
-                                path : '$media',
-                                preserveNullAndEmptyArrays: true
-                            }
-                        },
-                        {$lookup: {
-                            from: 'comments',
-                            let: {'postId': '$_id'},
-                            pipeline: [
-                                {$match: {
-                                    $expr: {
-                                        $eq: ['$post', '$$postId']
-                                    }
-                                }},
-                                {$lookup: {
-                                    from: 'users',
-                                    let: {'userId': '$user'},
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: 'medias',
+                                    let: { 'mediaId': '$media' },
                                     pipeline: [
-                                        {$match: {
-                                            $expr: {
-                                                $eq: ['$_id', '$$userId']
+                                        {
+                                            $match: {
+                                                $expr: {
+                                                    $eq: ['$_id', '$$mediaId']
+                                                }
                                             }
-                                        }},
-                                        {$lookup: {
-                                            from: 'medias',
-                                            let: {'mediaId': '$media'},
-                                            pipeline: [
-                                                {$match: {
-                                                    $expr: {
-                                                        $eq: ['$_id', '$$mediaId']
+                                        },
+                                        {
+                                            $project: {
+                                                _id: 1,
+                                                mimetype: 1,
+                                                url: 1
+                                            }
+                                        }
+                                    ],
+                                    as: 'media'
+                                }
+                            },
+                            {
+                                $unwind: {
+                                    path: '$media',
+                                    preserveNullAndEmptyArrays: true
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: 'comments',
+                                    let: { 'postId': '$_id' },
+                                    pipeline: [
+                                        {
+                                            $match: {
+                                                $expr: {
+                                                    $eq: ['$post', '$$postId']
+                                                }
+                                            }
+                                        },
+                                        {
+                                            $lookup: {
+                                                from: 'users',
+                                                let: { 'userId': '$user' },
+                                                pipeline: [
+                                                    {
+                                                        $match: {
+                                                            $expr: {
+                                                                $eq: ['$_id', '$$userId']
+                                                            }
+                                                        }
+                                                    },
+                                                    {
+                                                        $lookup: {
+                                                            from: 'medias',
+                                                            let: { 'mediaId': '$media' },
+                                                            pipeline: [
+                                                                {
+                                                                    $match: {
+                                                                        $expr: {
+                                                                            $eq: ['$_id', '$$mediaId']
+                                                                        }
+                                                                    }
+                                                                },
+                                                                {
+                                                                    $project: {
+                                                                        mimetype: 1,
+                                                                        url: 1
+                                                                    }
+                                                                }
+                                                            ],
+                                                            as: 'media'
+                                                        }
+                                                    },
+                                                    {
+                                                        $unwind: {
+                                                            path: '$media',
+                                                            preserveNullAndEmptyArrays: true
+                                                        }
+                                                    },
+                                                    {
+                                                        $project: {
+                                                            _id: 1,
+                                                            username: 1,
+                                                            media: {
+                                                                $ifNull: ['$media', null]
+                                                            }
+                                                        }
                                                     }
-                                                }},
-                                                {$project: {
-                                                    mimetype: 1,
-                                                    url: 1
-                                                }}
-                                            ],
-                                            as: 'media'
-                                        }},
+                                                ],
+                                                as: 'user'
+                                            }
+                                        },
                                         {
                                             $unwind: {
-                                                path : '$media',
+                                                path: '$user',
                                                 preserveNullAndEmptyArrays: true
                                             }
                                         },
-                                        {$project: {
-                                            _id: 1,
-                                            username: 1,
-                                            media: {
-                                                $ifNull: ['$media', null]
+                                        {
+                                            $sort: {
+                                                createdAt: -1
                                             }
-                                        }}
+                                        },
+                                        {
+                                            $project: {
+                                                _id: 1,
+                                                user: 1,
+                                                text: 1,
+                                                createdAt: 1,
+                                                updatedAt: 1
+                                            }
+                                        }
                                     ],
-                                    as: 'user'
-                                }},
-                                {
-                                    $unwind: {
-                                        path : '$user',
-                                        preserveNullAndEmptyArrays: true
+                                    as: 'comments'
+                                }
+                            },
+                            {
+                                $addFields: {
+                                    isLiked: {
+                                        $cond: [
+                                            { $in: [request.session.user.id, '$likes'] },
+                                            true,
+                                            false
+                                        ]
                                     }
-                                },
-                                {$sort: {
-                                    createdAt : -1
-                                }},
-                                {$project: {
-                                    _id : 1,
-                                    user: 1,
-                                    text: 1,
+                                }
+                            },
+                            {
+                                $project: {
+                                    _id: 1,
+                                    description: 1,
+                                    comments: 1,
+                                    media: {
+                                        $ifNull: ['$media', null]
+                                    },
                                     createdAt: 1,
-                                    updatedAt: 1
-                                }}
-                            ],
-                            as: 'comments'
-                        }},
-                        {$addFields: { 
-                            isLiked: { 
-                                $cond: [ 
-                                    { $in: [ request.session.user.id, '$likes' ] },
-                                    true, 
-                                    false
-                                ]
-                            }
-                        }},
-                        {$project: {
-                            _id: 1,
-                            description: 1,
-                            comments: 1,
-                            media: {
-                                $ifNull: ['$media', null]
+                                    likes: {
+                                        $size: '$likes'
+                                    },
+                                    isLiked: 1
+                                }
                             },
-                            createdAt: 1,
-                            likes: {
-                                $size: '$likes'
+                        ],
+                        as: 'posts'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'medias',
+                        let: { 'mediaId': '$media' },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $eq: ['$_id', '$$mediaId']
+                                    }
+                                }
                             },
-                            isLiked: 1
-                        }},
-                    ],
-                    as: 'posts'
-                }},
-                {$lookup: {
-                    from: 'medias',
-                    let: {'mediaId': '$media'},
-                    pipeline: [
-                        {$match: {
-                            $expr: {
-                                $eq: ['$_id', '$$mediaId']
+                            {
+                                $project: {
+                                    _id: 0,
+                                    mimetype: 1,
+                                    url: 1
+                                }
                             }
-                        }},
-                        {$project: {
-                            _id : 0,
-                            mimetype: 1,
-                            url: 1
-                        }}
-                    ],
-                    as: 'media'
-                }},
+                        ],
+                        as: 'media'
+                    }
+                },
                 {
                     $unwind: {
-                        path : '$media',
+                        path: '$media',
                         preserveNullAndEmptyArrays: true,
                     }
                 },
-                {$addFields: { 
-                    isFollower: { 
-                        $cond: [ 
-                            { $in: [ request.session.user.id, '$followers' ] },
-                            true, 
-                            false
-                        ]
+                {
+                    $addFields: {
+                        isFollower: {
+                            $cond: [
+                                { $in: [request.session.user.id, '$followers'] },
+                                true,
+                                false
+                            ]
+                        }
                     }
-                }},
-                {$project: {
-                    _id: 1,
-                    username: 1,
-                    description: 1,
-                    followers: {
-                        $size: '$followers'
-                    },
-                    following: {
-                        $size: '$following'
-                    },
-                    media: {
-                        $ifNull: ['$media', null]
-                    },
-                    isFollower: 1,
-                    posts: 1,
-                    createdAt: 1
-                }}
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        username: 1,
+                        description: 1,
+                        followers: {
+                            $size: '$followers'
+                        },
+                        following: {
+                            $size: '$following'
+                        },
+                        media: {
+                            $ifNull: ['$media', null]
+                        },
+                        isFollower: 1,
+                        posts: 1,
+                        createdAt: 1
+                    }
+                }
             ]);
 
-            if (!webProfile?.length){
+            if (!webProfile?.length) {
                 throw(new ServerException([`user ${request.params.username} does not exist`], 400));
             }
 
@@ -554,46 +523,56 @@ export default class UserController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
+            if (!request.session?.user?.id) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
             const user = await User.aggregate([
-                {$match: {
-                    _id: request.session.user.id,
-                }},
-                {$lookup: {
-                    from: 'medias',
-                    let: {'mediaId': '$media'},
-                    pipeline: [
-                        {$match: {
-                            $expr: {
-                                $eq: ['$_id', '$$mediaId']
+                {
+                    $match: {
+                        _id: request.session.user.id,
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'medias',
+                        let: { 'mediaId': '$media' },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $eq: ['$_id', '$$mediaId']
+                                    }
+                                }
+                            },
+                            {
+                                $project: {
+                                    _id: 0,
+                                    mimetype: 1,
+                                    url: 1
+                                }
                             }
-                        }},
-                        {$project: {
-                            _id : 0,
-                            mimetype: 1,
-                            url: 1
-                        }}
-                    ],
-                    as: 'media'
-                }},
+                        ],
+                        as: 'media'
+                    }
+                },
                 {
                     $unwind: {
-                        path : '$media',
+                        path: '$media',
                         preserveNullAndEmptyArrays: true,
                     }
                 },
-                {$project: {
-                    _id: 1,
-                    username: 1,
-                    description: 1,
-                    media: {
-                        $ifNull: ['$media', null]
-                    },
-                    createdAt: 1
-                }}
+                {
+                    $project: {
+                        _id: 1,
+                        username: 1,
+                        description: 1,
+                        media: {
+                            $ifNull: ['$media', null]
+                        },
+                        createdAt: 1
+                    }
+                }
             ]);
 
             response
@@ -616,7 +595,7 @@ export default class UserController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
+            if (!request.session?.user?.id) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -625,13 +604,13 @@ export default class UserController implements Routable
                 { _id: 1, username: 1 }
             );
 
-            if (!user){
+            if (!user) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
             const data = request.body;
 
-            if (user._id.equals(data.userId)){
+            if (user._id.equals(data.userId)) {
                 throw(new ServerException(['Prohibited'], 403));
             }
 
@@ -640,27 +619,27 @@ export default class UserController implements Routable
                 { _id: 1, followers: 1 }
             )
 
-            if (!targetedUser){
+            if (!targetedUser) {
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!targetedUser.followers.includes(user._id)){
+            if (!targetedUser.followers.includes(user._id)) {
 
-                if (!await User.updateOne({_id: data.userId}, {$addToSet: {followers: user._id}})){
+                if (!await User.updateOne({ _id: data.userId }, { $addToSet: { followers: user._id } })) {
                     throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
                 }
-    
-                if (!await User.updateOne({_id: user._id}, {$addToSet: {following: targetedUser._id}})){
+
+                if (!await User.updateOne({ _id: user._id }, { $addToSet: { following: targetedUser._id } })) {
                     throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
-    
+
                 const subscriptions = await Subscription.find(
                     { user: targetedUser._id },
                     { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                 );
-    
-                if (subscriptions?.length){
-                    for (const subscription of subscriptions){
+
+                if (subscriptions?.length) {
+                    for (const subscription of subscriptions) {
                         sendNotification(subscription, JSON.stringify({
                             type: 'NEW_FOLLOWER',
                             message: `${user.username} is now following you`,
@@ -688,21 +667,21 @@ export default class UserController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
+            if (!request.session?.user?.id) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
             const data = request.body;
 
-            if (!await User.exists({_id: data.userId})){
+            if (!await User.exists({ _id: data.userId })) {
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!await User.updateOne({_id: data.userId}, {$pull: {followers: request.session.user.id}})){
+            if (!await User.updateOne({ _id: data.userId }, { $pull: { followers: request.session.user.id } })) {
                 throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
             }
 
-            if (!await User.updateOne({_id: request.session.user.id}, {$pull: {following: data.userId}})){
+            if (!await User.updateOne({ _id: request.session.user.id }, { $pull: { following: data.userId } })) {
                 throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
             }
 
