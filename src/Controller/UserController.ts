@@ -599,7 +599,7 @@ export default class UserController implements Routable {
             const targetedUser = await User.findById(
                 data.userId,
                 { _id: 1, followers: 1 }
-            )
+            );
 
             if (!targetedUser) {
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
@@ -649,18 +649,34 @@ export default class UserController implements Routable {
     {
         try {
 
-            const data = request.body;
+            const user = await User.findById(
+                request.session.user.id,
+                { _id: 1 }
+            );
 
-            if (!await User.exists({ _id: data.userId })) {
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
+            const data = request.body;
+            const targetedUser = await User.findById(
+                data.userId,
+                { _id: 1, followers: 1 }
+            );
+    
+            if (!targetedUser){
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
             }
 
-            if (!await User.updateOne({ _id: data.userId }, { $pull: { followers: request.session.user.id } })) {
-                throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
-            }
+            if (targetedUser.followers.includes(user._id)){
 
-            if (!await User.updateOne({ _id: request.session.user.id }, { $pull: { following: data.userId } })) {
-                throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
+                if (!await User.updateOne({ _id: data.userId }, { $pull: { followers: request.session.user.id }})) {
+                    throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
+                }
+    
+                if (!await User.updateOne({ _id: request.session.user.id }, { $pull: { following: data.userId }})) {
+                    throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
+                }
             }
 
             response

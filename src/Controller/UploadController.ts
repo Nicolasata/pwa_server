@@ -54,7 +54,7 @@ export default class UploadController implements Routable
             }
 
             response
-            .status(200)
+            .status(201)
             .send({
                 media: newMedia._id
             });
