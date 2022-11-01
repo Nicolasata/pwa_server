@@ -285,6 +285,7 @@ export default class PostController implements Routable
                 }},
                 {$project: {
                     _id: 1,
+                    description: 1,
                     user: 1,
                     comments: 1,
                     media: {
