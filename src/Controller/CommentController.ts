@@ -6,6 +6,7 @@ import { User } from '../Schema/UserSchema';
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
+import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { sendNotification } from 'web-push';
 import { Save, Edit } from '../DTO/CommentDTO';
@@ -23,18 +24,14 @@ export default class CommentController implements Routable
 
     initialiseRouter()
     {
-        this.router.post('/save', DTOValidator(Save), this.save);
-        this.router.put('/edit/:commentId', DTOValidator(Edit), this.edit);
-        this.router.delete('/delete/:commentId', this.delete);
+        this.router.post('/save', IsAuthenticated, DTOValidator(Save), this.save);
+        this.router.put('/edit/:commentId', IsAuthenticated, DTOValidator(Edit), this.edit);
+        this.router.delete('/delete/:commentId', IsAuthenticated, this.delete);
     }
 
     save = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const user = await User.findById(
                 request.session.user.id,
@@ -97,10 +94,6 @@ export default class CommentController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
-
             const comment = await Comment.findById(request.params.commentId);
 
             if (!comment){
@@ -133,10 +126,6 @@ export default class CommentController implements Routable
     delete = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const comment = await Comment.findById(request.params.commentId);
 

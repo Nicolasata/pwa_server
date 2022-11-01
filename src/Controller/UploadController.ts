@@ -1,6 +1,7 @@
 
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
+import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { Media } from '../Schema/MediaSchema';
 import { Router, Response, Request } from 'express';
@@ -30,17 +31,13 @@ export default class UploadController implements Routable
             })
         });
 
-        this.router.post('/save', upload.single('media'), this.save);
-        this.router.delete('/delete/:mediaId', this.delete);
+        this.router.post('/save', IsAuthenticated, upload.single('media'), this.save);
+        this.router.delete('/delete/:mediaId', IsAuthenticated, this.delete);
     }
 
     save = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             if (!request.file){
                 throw(new ServerException(['file should not be undefined'], 400));
@@ -75,10 +72,6 @@ export default class UploadController implements Routable
     delete = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const media = await Media.findById(request.params.mediaId, {
                 _id: 1, path: 1

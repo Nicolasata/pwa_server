@@ -7,6 +7,7 @@ import { Comment } from '../Schema/CommentSchema';
 import ServerException from '../Exception/ServerException';
 import DTOValidator from '../Middlewares/DTOValidator';
 import Routable from '../Interface/Routable';
+import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { hash, genSalt, compare } from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -23,15 +24,16 @@ export default class UserController implements Routable {
         this.route = '/user';
     }
 
-    initialiseRouter() {
-        this.router.delete('/delete', this.delete);
-        this.router.put('/edit', DTOValidator(Edit), this.edit);
+    initialiseRouter()
+    {
+        this.router.delete('/delete', IsAuthenticated, this.delete);
+        this.router.put('/edit', IsAuthenticated, DTOValidator(Edit), this.edit);
         this.router.post('/save', DTOValidator(Save), this.save);
         this.router.post('/login', DTOValidator(Login), this.login);
-        this.router.post('/follow', DTOValidator(Follow), this.follow);
-        this.router.post('/unfollow', DTOValidator(Follow), this.unfollow);
-        this.router.get('/getWebProfile/:username', this.getWebProfile);
-        this.router.get('/getCurrentUser', this.getCurrentUser);
+        this.router.post('/follow', IsAuthenticated, DTOValidator(Follow), this.follow);
+        this.router.post('/unfollow', IsAuthenticated, DTOValidator(Follow), this.unfollow);
+        this.router.get('/getWebProfile/:username', IsAuthenticated, this.getWebProfile);
+        this.router.get('/getCurrentUser', IsAuthenticated, this.getCurrentUser);
     }
 
     save = async (request: Request, response: Response) =>
@@ -77,10 +79,6 @@ export default class UserController implements Routable {
     edit = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const data = request.body;
 
@@ -147,10 +145,6 @@ export default class UserController implements Routable {
     delete = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id) {
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const user = await User.findById(
                 request.session.user.id,
@@ -267,10 +261,6 @@ export default class UserController implements Routable {
     getWebProfile = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id) {
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const webProfile = await User.aggregate([
                 {
@@ -523,10 +513,6 @@ export default class UserController implements Routable {
     {
         try {
 
-            if (!request.session?.user?.id) {
-                throw(new ServerException(['Unauthorized'], 401));
-            }
-
             const user = await User.aggregate([
                 {
                     $match: {
@@ -595,10 +581,6 @@ export default class UserController implements Routable {
     {
         try {
 
-            if (!request.session?.user?.id) {
-                throw(new ServerException(['Unauthorized'], 401));
-            }
-
             const user = await User.findById(
                 request.session.user.id,
                 { _id: 1, username: 1 }
@@ -666,10 +648,6 @@ export default class UserController implements Routable {
     unfollow = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id) {
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const data = request.body;
 

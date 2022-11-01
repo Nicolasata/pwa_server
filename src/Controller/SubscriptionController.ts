@@ -2,6 +2,7 @@
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
+import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { Subscription } from '../Schema/SubscriptionSchema';
 import { Save } from '../DTO/SubscriptionDTO';
@@ -19,17 +20,13 @@ export default class SubscriptionController implements Routable
 
     initialiseRouter()
     {
-        this.router.get('/getPublicKey', this.getPublicKey);
-        this.router.post('/save', DTOValidator(Save), this.save);
+        this.router.get('/getPublicKey', IsAuthenticated, this.getPublicKey);
+        this.router.post('/save', IsAuthenticated, DTOValidator(Save), this.save);
     }
 
     save = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const data = request.body;
             const newSubscription = new Subscription({
@@ -58,10 +55,6 @@ export default class SubscriptionController implements Routable
     getPublicKey = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             response
             .status(200)

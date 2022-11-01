@@ -6,6 +6,7 @@ import { Subscription } from '../Schema/SubscriptionSchema';
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
+import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { Types } from 'mongoose';
 import { sendNotification } from 'web-push';
@@ -25,21 +26,17 @@ export default class PostController implements Routable
 
     initialiseRouter()
     {
-        this.router.post('/save', DTOValidator(Save), this.save);
-        this.router.put('/edit/:postId', DTOValidator(Edit), this.edit);
-        this.router.put('/like/:postId', DTOValidator(Like), this.like);
-        this.router.get('/getPosts', this.getPosts);
-        this.router.get('/getPost/:postId', this.getPost);
-        this.router.delete('/delete/:postId', this.delete);
+        this.router.post('/save', IsAuthenticated, DTOValidator(Save), this.save);
+        this.router.put('/edit/:postId', IsAuthenticated, DTOValidator(Edit), this.edit);
+        this.router.put('/like/:postId', IsAuthenticated, DTOValidator(Like), this.like);
+        this.router.get('/getPosts', IsAuthenticated, this.getPosts);
+        this.router.get('/getPost/:postId', IsAuthenticated, this.getPost);
+        this.router.delete('/delete/:postId', IsAuthenticated, this.delete);
     }
 
     save = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const user = await User.findById(
                 request.session.user.id,
@@ -116,10 +113,6 @@ export default class PostController implements Routable
     getPosts = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const posts = await Post.aggregate([
                 {$lookup: {
@@ -324,10 +317,6 @@ export default class PostController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
-            
             const post = await Post.aggregate([
                 {$match: {
                     _id: new Types.ObjectId(request.params.postId)
@@ -537,10 +526,6 @@ export default class PostController implements Routable
     {
         try {
 
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
-
             const post = await Post.findById(request.params.postId);
 
             if (!post){
@@ -573,10 +558,6 @@ export default class PostController implements Routable
     like = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const user = await User.findById(
                 request.session.user.id,
@@ -649,10 +630,6 @@ export default class PostController implements Routable
     delete = async (request: Request, response: Response) =>
     {
         try {
-
-            if (!request.session?.user?.id){
-                throw(new ServerException(['Unauthorized'], 401));
-            }
 
             const post = await Post.findById(request.params.postId).populate('media');
 
