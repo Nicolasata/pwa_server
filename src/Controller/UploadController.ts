@@ -5,8 +5,9 @@ import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { Media } from '../Schema/MediaSchema';
 import { Router, Response, Request } from 'express';
-import multer, { diskStorage } from 'multer';
 import { existsSync, unlinkSync } from 'fs';
+import { User } from '../Schema/UserSchema';
+import multer, { diskStorage } from 'multer';
 
 export default class UploadController implements Routable
 {
@@ -39,12 +40,20 @@ export default class UploadController implements Routable
     {
         try {
 
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             if (!request.file){
                 throw(new ServerException(['file should not be undefined'], 400));
             }
 
             const newMedia = new Media({
-                user: request.session.user.id,
+                user: user._id,
                 url: `${process.env.SERVER_URL}/media/${request.file.filename}`,
                 ...request.file
             });

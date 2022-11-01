@@ -7,6 +7,7 @@ import IsAuthenticated from '../Middlewares/IsAuthenticated';
 import { Subscription } from '../Schema/SubscriptionSchema';
 import { Save } from '../DTO/SubscriptionDTO';
 import { Router, Response, Request } from 'express';
+import { User } from '../Schema/UserSchema';
 
 export default class SubscriptionController implements Routable
 {
@@ -28,9 +29,17 @@ export default class SubscriptionController implements Routable
     {
         try {
 
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const data = request.body;
             const newSubscription = new Subscription({
-                user: request.session.user.id,
+                user: user._id,
                 ...data
             });
 

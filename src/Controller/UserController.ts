@@ -146,10 +146,9 @@ export default class UserController implements Routable {
     {
         try {
 
-            const user = await User.findById(
-                request.session.user.id,
-                { _id: 1, following: 1, likes: 1 }
-            );
+            const user = await User.findById(request.session.user.id, {
+                _id: 1, following: 1, likes: 1
+            });
 
             if (!user) {
                 throw(new ServerException(['Unauthorized'], 401));
@@ -261,6 +260,14 @@ export default class UserController implements Routable {
     getWebProfile = async (request: Request, response: Response) =>
     {
         try {
+
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
 
             const webProfile = await User.aggregate([
                 {
@@ -402,7 +409,7 @@ export default class UserController implements Routable {
                                 $addFields: {
                                     isLiked: {
                                         $cond: [
-                                            { $in: [request.session.user.id, '$likes'] },
+                                            { $in: [user._id, '$likes'] },
                                             true,
                                             false
                                         ]
@@ -461,7 +468,7 @@ export default class UserController implements Routable {
                     $addFields: {
                         isFollower: {
                             $cond: [
-                                { $in: [request.session.user.id, '$followers'] },
+                                { $in: [user._id, '$followers'] },
                                 true,
                                 false
                             ]
@@ -581,10 +588,9 @@ export default class UserController implements Routable {
     {
         try {
 
-            const user = await User.findById(
-                request.session.user.id,
-                { _id: 1, username: 1 }
-            );
+            const user = await User.findById(request.session.user.id, {
+                _id: 1, username: 1
+            });
 
             if (!user) {
                 throw(new ServerException(['Unauthorized'], 401));
@@ -596,10 +602,9 @@ export default class UserController implements Routable {
                 throw(new ServerException(['Prohibited'], 403));
             }
 
-            const targetedUser = await User.findById(
-                data.userId,
-                { _id: 1, followers: 1 }
-            );
+            const targetedUser = await User.findById(data.userId, {
+                _id: 1, followers: 1
+            });
 
             if (!targetedUser) {
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));
@@ -649,20 +654,18 @@ export default class UserController implements Routable {
     {
         try {
 
-            const user = await User.findById(
-                request.session.user.id,
-                { _id: 1 }
-            );
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
 
             if (!user) {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
             const data = request.body;
-            const targetedUser = await User.findById(
-                data.userId,
-                { _id: 1, followers: 1 }
-            );
+            const targetedUser = await User.findById(data.userId, {
+                _id: 1, followers: 1
+            });
     
             if (!targetedUser){
                 throw(new ServerException([`user ${data.userId} does not exist`], 400));

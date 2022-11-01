@@ -38,10 +38,9 @@ export default class PostController implements Routable
     {
         try {
 
-            const user = await User.findById(
-                request.session.user.id,
-                { _id: 1, username: 1, followers: 1 }
-            );
+            const user = await User.findById(request.session.user.id, {
+                _id: 1, username: 1, followers: 1
+            });
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
@@ -114,6 +113,14 @@ export default class PostController implements Routable
     {
         try {
 
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const posts = await Post.aggregate([
                 {$lookup: {
                     from: 'users',
@@ -150,7 +157,7 @@ export default class PostController implements Routable
                         {$addFields: { 
                             isFollower: { 
                                 $cond: [ 
-                                    { $in: [ request.session.user.id, '$followers' ] },
+                                    { $in: [ user._id, '$followers' ] },
                                     true, 
                                     false
                                 ]
@@ -274,7 +281,7 @@ export default class PostController implements Routable
                 {$addFields: { 
                     isLiked: { 
                         $cond: [ 
-                            { $in: [ request.session.user.id, '$likes' ] },
+                            { $in: [ user._id, '$likes' ] },
                             true, 
                             false
                         ]
@@ -318,6 +325,14 @@ export default class PostController implements Routable
     {
         try {
 
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const post = await Post.aggregate([
                 {$match: {
                     _id: new Types.ObjectId(request.params.postId)
@@ -357,7 +372,7 @@ export default class PostController implements Routable
                         {$addFields: { 
                             isFollower: { 
                                 $cond: [ 
-                                    { $in: [ request.session.user.id, '$followers' ] },
+                                    { $in: [ user._id, '$followers' ] },
                                     true, 
                                     false
                                 ]
@@ -481,7 +496,7 @@ export default class PostController implements Routable
                 {$addFields: { 
                     isLiked: { 
                         $cond: [ 
-                            { $in: [ request.session.user.id, '$likes' ] },
+                            { $in: [ user._id, '$likes' ] },
                             true, 
                             false
                         ]
@@ -527,13 +542,21 @@ export default class PostController implements Routable
     {
         try {
 
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const post = await Post.findById(request.params.postId);
 
             if (!post){
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
-            if (!post.user._id.equals(request.session.user.id)){
+            if (!post.user._id.equals(user._id)){
                 throw(new ServerException(['Prohibited'], 403));
             }
 
@@ -560,10 +583,9 @@ export default class PostController implements Routable
     {
         try {
 
-            const user = await User.findById(
-                request.session.user.id,
-                { _id: 1, username: 1 }
-            );
+            const user = await User.findById(request.session.user.id, {
+                _id: 1, username: 1
+            });
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
@@ -642,12 +664,15 @@ export default class PostController implements Routable
                 throw(new ServerException(['Prohibited'], 403));
             }
 
-            if (!await Media.deleteOne({_id: post.media})){
-                throw(new Error(`Failed to deleteOne Media with _id ${post.media}`));
-            }
+            if (post.media){
 
-            if (existsSync(post.media.path)){
-                unlinkSync(post.media.path);
+                if (!await Media.deleteOne({_id: post.media._id})){
+                    throw(new Error(`Failed to deleteOne Media with _id ${post.media._id}`));
+                }
+    
+                if (existsSync(post.media.path)){
+                    unlinkSync(post.media.path);
+                }
             }
 
             if (!await Post.deleteOne({_id: post._id})){

@@ -33,20 +33,18 @@ export default class CommentController implements Routable
     {
         try {
 
-            const user = await User.findById(
-                request.session.user.id,
-                { _id: 1, username: 1 }
-            );
+            const user = await User.findById(request.session.user.id, {
+                _id: 1, username: 1
+            });
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
             const data = request.body;
-            const post = await Post.findById(
-                data.post,
-                { _id: 1, user: 1 }
-            );
+            const post = await Post.findById(data.post, {
+                _id: 1, user: 1
+            });
 
             if (!post){
                 throw(new ServerException([`post ${data.post} does not exist`], 400));
@@ -94,13 +92,21 @@ export default class CommentController implements Routable
     {
         try {
 
+            const user = await User.findById(request.session.user.id, {
+                _id: 1
+            });
+
+            if (!user) {
+                throw(new ServerException(['Unauthorized'], 401));
+            }
+
             const comment = await Comment.findById(request.params.commentId);
 
             if (!comment){
                 throw(new ServerException([`comment ${request.params.commentId} does not exist`], 400));
             }
 
-            if (!comment.user._id.equals(request.session.user.id)){
+            if (!comment.user._id.equals(user._id)){
                 throw(new ServerException(['Prohibited'], 403));
             }
             
