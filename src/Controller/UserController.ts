@@ -28,10 +28,10 @@ export default class UserController implements Routable {
     {
         this.router.delete('/delete', IsAuthenticated, this.delete);
         this.router.put('/edit', IsAuthenticated, DTOValidator(Edit), this.edit);
+        this.router.put('/follow', IsAuthenticated, DTOValidator(Follow), this.follow);
+        this.router.put('/unfollow', IsAuthenticated, DTOValidator(Follow), this.unfollow);
         this.router.post('/save', DTOValidator(Save), this.save);
         this.router.post('/login', DTOValidator(Login), this.login);
-        this.router.post('/follow', IsAuthenticated, DTOValidator(Follow), this.follow);
-        this.router.post('/unfollow', IsAuthenticated, DTOValidator(Follow), this.unfollow);
         this.router.get('/getWebProfile/:username', IsAuthenticated, this.getWebProfile);
         this.router.get('/getCurrentUser', IsAuthenticated, this.getCurrentUser);
     }
