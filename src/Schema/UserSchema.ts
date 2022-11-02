@@ -53,11 +53,6 @@ const UserSchema = new Schema<IUser>({
         ref: 'Post',
         default: []
     },
-    subscriptions: {
-        type: [Schema.Types.ObjectId],
-        ref: 'Subscription',
-        default: []
-    },
     deletedAt: {
         type: Date,
         default: null

@@ -92,6 +92,7 @@ export default class PostController implements Routable
                     url: media.url,
                     mimetype: media.mimetype
                 },
+                likes: 0,
                 description: newPost.description
             });
 
