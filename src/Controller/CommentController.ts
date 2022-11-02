@@ -42,18 +42,17 @@ export default class CommentController implements Routable
             }
 
             const data = request.body;
-            const post = await Post.findById(data.postId, {
+            const post = await Post.findById(data.post, {
                 _id: 1, user: 1
             });
 
             if (!post){
-                throw(new ServerException([`post ${data.postId} does not exist`], 400));
+                throw(new ServerException([`post ${data.post} does not exist`], 400));
             }
 
             const newComment = new Comment({
                 user: user._id,
-                post: post._id,
-                text: data.text
+                ...data
             });
 
             if (!await newComment.save()){
