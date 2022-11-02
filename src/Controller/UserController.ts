@@ -649,7 +649,7 @@ export default class UserController implements Routable {
             }
 
             response
-            .status(204)
+            .status(200)
             .send(data);
 
         } catch(error){
