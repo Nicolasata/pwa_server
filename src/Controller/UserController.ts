@@ -31,6 +31,7 @@ export default class UserController implements Routable {
         this.router.put('/follow/:userId', IsAuthenticated, this.follow);
         this.router.post('/save', DTOValidator(Save), this.save);
         this.router.post('/login', DTOValidator(Login), this.login);
+        this.router.get('/logout', IsAuthenticated, this.logout);
         this.router.get('/getWebProfile/:username', IsAuthenticated, this.getWebProfile);
         this.router.get('/getCurrentUser', IsAuthenticated, this.getCurrentUser);
     }
@@ -651,6 +652,30 @@ export default class UserController implements Routable {
             response
             .status(200)
             .send(data);
+
+        } catch(error){
+
+            response
+            .status(error instanceof ServerException ? error.httpCode : 500)
+            .send({
+                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+            });
+        }
+    }
+
+    logout = async (request: Request, response: Response) =>
+    {
+        try {
+
+            request.session.destroy((error) => {
+                if (error){
+                    console.log(error);
+                }
+            });
+
+            response
+            .status(204)
+            .send();
 
         } catch(error){
 
