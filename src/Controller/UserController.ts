@@ -668,9 +668,6 @@ export default class UserController implements Routable {
         try {
 
             request.session.destroy((error) => {
-                if (error){
-                    console.log(error);
-                }
             });
 
             response
