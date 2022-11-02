@@ -10,7 +10,7 @@ import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { Types } from 'mongoose';
 import { sendNotification } from 'web-push';
-import { Save, Edit, Like } from '../DTO/PostDTO';
+import { Save, Edit } from '../DTO/PostDTO';
 import { Router, Response, Request } from 'express';
 import { existsSync, unlinkSync } from 'fs';
 
@@ -28,7 +28,7 @@ export default class PostController implements Routable
     {
         this.router.post('/save', IsAuthenticated, DTOValidator(Save), this.save);
         this.router.put('/edit/:postId', IsAuthenticated, DTOValidator(Edit), this.edit);
-        this.router.put('/like/:postId', IsAuthenticated, DTOValidator(Like), this.like);
+        this.router.put('/like/:postId', IsAuthenticated, this.like);
         this.router.get('/getPosts', IsAuthenticated, this.getPosts);
         this.router.get('/getPost/:postId', IsAuthenticated, this.getPost);
         this.router.delete('/delete/:postId', IsAuthenticated, this.delete);
@@ -598,16 +598,13 @@ export default class PostController implements Routable
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
-            const data = request.body;
-            const isLiked = post.likes.includes(user._id);
+            if (!post.likes.includes(user._id)){
 
-            if (data.isLiked && !isLiked){
-
-                if (!await Post.updateOne({_id: post._id}, {$push: {likes: user._id}})){
+                if (!await Post.updateOne({ _id: post._id }, { $push: {likes: user._id} })){
                     throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
                 }
                 
-                if (!await User.updateOne({_id: user._id}, {$push: {likes: post._id}})){
+                if (!await User.updateOne({ _id: user._id }, { $push: {likes: post._id} })){
                     throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
 
@@ -626,13 +623,13 @@ export default class PostController implements Routable
                     }
                 }
 
-            } else if (!data.isLiked && isLiked){
+            } else {
 
-                if (!await Post.updateOne({_id: post._id}, {$pull: {likes: user._id}})){
+                if (!await Post.updateOne({ _id: post._id} , { $pull: {likes: user._id} })){
                     throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
                 }
 
-                if (!await User.updateOne({_id: user._id}, {$pull: {likes: post._id}})){
+                if (!await User.updateOne({ _id: user._id }, { $pull: {likes: post._id} })){
                     throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
             }

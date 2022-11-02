@@ -63,11 +63,3 @@ export class Edit
     @IsNotEmpty()
     media: string;
 };
-
-export class Follow
-{
-    @IsDefined()
-    @IsString()
-    @IsNotEmpty()
-    userId: string;
-};

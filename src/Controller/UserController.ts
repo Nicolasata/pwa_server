@@ -14,7 +14,7 @@ import { randomBytes } from 'crypto';
 import { existsSync, unlinkSync } from 'fs';
 import { sendNotification } from 'web-push';
 import { Router, Response, Request } from 'express';
-import { Save, Login, Follow, Edit } from '../DTO/UserDTO';
+import { Save, Login, Edit } from '../DTO/UserDTO';
 
 export default class UserController implements Routable {
     route: string;
@@ -28,8 +28,7 @@ export default class UserController implements Routable {
     {
         this.router.delete('/delete', IsAuthenticated, this.delete);
         this.router.put('/edit', IsAuthenticated, DTOValidator(Edit), this.edit);
-        this.router.put('/follow', IsAuthenticated, DTOValidator(Follow), this.follow);
-        this.router.put('/unfollow', IsAuthenticated, DTOValidator(Follow), this.unfollow);
+        this.router.put('/follow/:userId', IsAuthenticated, this.follow);
         this.router.post('/save', DTOValidator(Save), this.save);
         this.router.post('/login', DTOValidator(Login), this.login);
         this.router.get('/getWebProfile/:username', IsAuthenticated, this.getWebProfile);
@@ -596,27 +595,25 @@ export default class UserController implements Routable {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            const data = request.body;
-
-            if (user._id.equals(data.userId)) {
+            if (user._id.equals(request.params.userId)) {
                 throw(new ServerException(['Prohibited'], 403));
             }
 
-            const targetedUser = await User.findById(data.userId, {
+            const targetedUser = await User.findById(request.params.userId, {
                 _id: 1, followers: 1
             });
 
             if (!targetedUser) {
-                throw(new ServerException([`user ${data.userId} does not exist`], 400));
+                throw(new ServerException([`user ${request.params.userId} does not exist`], 400));
             }
 
             if (!targetedUser.followers.includes(user._id)) {
 
-                if (!await User.updateOne({ _id: data.userId }, { $addToSet: { followers: user._id } })) {
-                    throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
+                if (!await User.updateOne({ _id: targetedUser._id }, { $addToSet: {followers: user._id} })) {
+                    throw(new Error(`Failed to updateOne User with _id ${targetedUser._id}`));
                 }
 
-                if (!await User.updateOne({ _id: user._id }, { $addToSet: { following: targetedUser._id } })) {
+                if (!await User.updateOne({ _id: user._id }, { $addToSet: {following: targetedUser._id} })) {
                     throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
 
@@ -634,51 +631,14 @@ export default class UserController implements Routable {
                         }));
                     }
                 }
-            }
-
-            response
-            .status(204)
-            .send();
-
-        } catch(error){
-
-            response
-            .status(error instanceof ServerException ? error.httpCode : 500)
-            .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
-            });
-        }
-    }
-
-    unfollow = async (request: Request, response: Response) =>
-    {
-        try {
-
-            const user = await User.findById(request.session.user.id, {
-                _id: 1
-            });
-
-            if (!user) {
-                throw(new ServerException(['Unauthorized'], 401));
-            }
-
-            const data = request.body;
-            const targetedUser = await User.findById(data.userId, {
-                _id: 1, followers: 1
-            });
-    
-            if (!targetedUser){
-                throw(new ServerException([`user ${data.userId} does not exist`], 400));
-            }
-
-            if (targetedUser.followers.includes(user._id)){
-
-                if (!await User.updateOne({ _id: data.userId }, { $pull: { followers: request.session.user.id }})) {
-                    throw(new Error(`Failed to updateOne User with _id ${data.userId}`));
+            } else {
+              
+                if (!await User.updateOne({ _id: targetedUser._id }, { $pull: {followers: user._id} })) {
+                    throw(new Error(`Failed to updateOne User with _id ${targetedUser._id}`));
                 }
     
-                if (!await User.updateOne({ _id: request.session.user.id }, { $pull: { following: data.userId }})) {
-                    throw(new Error(`Failed to updateOne User with _id ${request.session.user.id}`));
+                if (!await User.updateOne({ _id: user._id }, { $pull: {following: targetedUser._id} })) {
+                    throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
             }
 

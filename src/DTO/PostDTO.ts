@@ -25,10 +25,3 @@ export class Edit
     @IsNotEmpty()
     description: string;
 };
-
-export class Like
-{
-    @IsDefined()
-    @IsBoolean()
-    isLiked: boolean;
-};
