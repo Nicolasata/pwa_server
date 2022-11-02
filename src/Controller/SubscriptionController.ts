@@ -33,7 +33,7 @@ export default class SubscriptionController implements Routable
                 _id: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 

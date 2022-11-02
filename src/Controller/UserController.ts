@@ -90,7 +90,7 @@ export default class UserController implements Routable {
                 _id: 1, media: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -150,7 +150,7 @@ export default class UserController implements Routable {
                 _id: 1, following: 1, likes: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -221,7 +221,7 @@ export default class UserController implements Routable {
                 ]
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Incorrect username or email'], 200));
             }
 
@@ -266,7 +266,7 @@ export default class UserController implements Routable {
                 _id: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -593,7 +593,7 @@ export default class UserController implements Routable {
                 _id: 1, username: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -668,18 +668,26 @@ export default class UserController implements Routable {
         try {
 
             request.session.destroy((error) => {
-            });
 
-            response
-            .status(204)
-            .send();
+                if (error){
+                    return response
+                    .status(401)
+                    .send({
+                        errors: ['Unauthorized']
+                    });
+                }
+
+                response
+                .status(204)
+                .send();
+            });
 
         } catch(error){
 
             response
-            .status(error instanceof ServerException ? error.httpCode : 500)
+            .status(500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: ['Internal server error']
             });
         }
     }

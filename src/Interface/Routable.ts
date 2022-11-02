@@ -1,8 +1,8 @@
-import * as express from 'express'
+import { Router } from 'express'
 
 export default interface Routable
 {
-    router: express.Router;
+    router: Router;
     route: string;
     initialiseRouter: () => void;
 };

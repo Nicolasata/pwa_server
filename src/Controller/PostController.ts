@@ -117,7 +117,7 @@ export default class PostController implements Routable
                 _id: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -329,7 +329,7 @@ export default class PostController implements Routable
                 _id: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
@@ -546,7 +546,7 @@ export default class PostController implements Routable
                 _id: 1
             });
 
-            if (!user) {
+            if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
