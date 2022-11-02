@@ -52,7 +52,8 @@ export default class CommentController implements Routable
 
             const newComment = new Comment({
                 user: user._id,
-                ...data
+                post: post._id,
+                text: data.text
             });
 
             if (!await newComment.save()){
