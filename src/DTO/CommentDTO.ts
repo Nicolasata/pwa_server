@@ -9,7 +9,7 @@ export class Save
     @IsDefined()
     @IsString()
     @IsNotEmpty()
-    post: string;
+    postId: string;
     
     @IsDefined()
     @IsString()

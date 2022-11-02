@@ -39,8 +39,8 @@ export default class PostController implements Routable
         try {
 
             const user = await User.findById(request.session.user.id, {
-                _id: 1, username: 1, followers: 1
-            });
+                _id: 1, username: 1, followers: 1, following: 1, media: 1
+            }).populate('media');
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
@@ -88,12 +88,11 @@ export default class PostController implements Routable
             .status(200)
             .send({
                 _id: newPost._id,
-                media: {
-                    url: media.url,
-                    mimetype: media.mimetype
-                },
+                description: newPost.description,
+                user: user,
+                media: media,
                 likes: 0,
-                description: newPost.description
+                comments: []
             });
 
         } catch(error){
