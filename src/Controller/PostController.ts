@@ -597,7 +597,11 @@ export default class PostController implements Routable
                 throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
             }
 
+            const data = { isLiked: false };
+
             if (!post.likes.includes(user._id)){
+
+                data.isLiked = true;
 
                 if (!await Post.updateOne({ _id: post._id }, { $push: {likes: user._id} })){
                     throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
@@ -635,7 +639,7 @@ export default class PostController implements Routable
 
             response
             .status(204)
-            .send();
+            .send(data);
 
         } catch(error){
 

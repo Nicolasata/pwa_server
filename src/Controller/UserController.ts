@@ -608,7 +608,11 @@ export default class UserController implements Routable {
                 throw(new ServerException([`user ${request.params.userId} does not exist`], 400));
             }
 
+            const data = { isFollower: false };
+
             if (!targetedUser.followers.includes(user._id)) {
+
+                data.isFollower = true;
 
                 if (!await User.updateOne({ _id: targetedUser._id }, { $addToSet: {followers: user._id} })) {
                     throw(new Error(`Failed to updateOne User with _id ${targetedUser._id}`));
@@ -632,6 +636,7 @@ export default class UserController implements Routable {
                         }));
                     }
                 }
+
             } else {
               
                 if (!await User.updateOne({ _id: targetedUser._id }, { $pull: {followers: user._id} })) {
@@ -645,7 +650,7 @@ export default class UserController implements Routable {
 
             response
             .status(204)
-            .send();
+            .send(data);
 
         } catch(error){
 
