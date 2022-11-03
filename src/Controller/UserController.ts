@@ -10,7 +10,6 @@ import Routable from '../Interface/Routable';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { hash, genSalt, compare } from 'bcrypt';
-import { randomBytes } from 'crypto';
 import { existsSync, unlinkSync } from 'fs';
 import { sendNotification } from 'web-push';
 import { Router, Response, Request } from 'express';
@@ -215,7 +214,7 @@ export default class UserController implements Routable {
 
             const data = request.body;
             const user = await User.findOne({
-                $or: [
+                $or: [  
                     { email: data.identifier },
                     { username: data.identifier }
                 ]
@@ -229,22 +228,21 @@ export default class UserController implements Routable {
                 throw(new ServerException(['Incorrect username or email'], 200));
             }
 
-            const fingerprint = randomBytes(20).toString('hex');
-            response.cookie('fingerprint', fingerprint);
+            if (user.media){
+                await user.populate('media', {
+                    _id: 1, url: 1, mimetype: 1
+                });
+            }
 
-            delete (request.session.visitor);
-            request.session.user = {
-                id: user._id,
-                fingerprint: fingerprint
-            };
-
+            request.session.user = { id: user._id };
             response
             .status(200)
             .send({
                 user: {
                     _id: user._id,
                     username: user.username,
-                    email: user.email
+                    email: user.email,
+                    media: user.media
                 }
             });
 

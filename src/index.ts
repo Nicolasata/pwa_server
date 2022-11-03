@@ -4,12 +4,11 @@ import SubscriptionController from './Controller/SubscriptionController'
 import PostController from './Controller/PostController'
 import CommentController from './Controller/CommentController'
 import UploadController from './Controller/UploadController'
-import { VisitorSession, UserSession } from './Session'
+import { UserSession } from './Session'
 
 declare module 'express-session' {
     interface SessionData {
         user: UserSession;
-        visitor: VisitorSession
     }
 };
 
