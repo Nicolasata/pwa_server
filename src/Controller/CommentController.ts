@@ -59,18 +59,21 @@ export default class CommentController implements Routable
                 throw(new Error('Failed to save Comment'));
             }
 
-            const subscriptions = await Subscription.find(
-                { user: post.user },
-                { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
-            );
+            if (!user._id.equals(post.user)){
 
-            if (subscriptions?.length){
-                for (const subscription of subscriptions){
-                    sendNotification(subscription, JSON.stringify({
-                        type: 'NEW_COMMENT',
-                        message: `${user.username} commented on one of your posts`,
-                        url: `${process.env.FRONT_URL}/post/${post._id}`
-                    }));
+                const subscriptions = await Subscription.find(
+                    { user: post.user },
+                    { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+                );
+    
+                if (subscriptions?.length){
+                    for (const subscription of subscriptions){
+                        sendNotification(subscription, JSON.stringify({
+                            type: 'NEW_COMMENT',
+                            message: `${user.username} commented on one of your posts`,
+                            url: `${process.env.FRONT_URL}/post/${post._id}`
+                        }));
+                    }
                 }
             }
 

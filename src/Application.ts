@@ -1,15 +1,17 @@
 
-import mongoose, { ConnectOptions } from 'mongoose';
-import { setVapidDetails } from 'web-push';
+import 'reflect-metadata'
+
 import { join, resolve } from 'path';
+import mongoose, { ConnectOptions } from 'mongoose';
+import express, { Application as ExpressApplication } from 'express';
+
 import Routable from './Interface/Routable'
 import MongoStore from 'connect-mongo';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express, { Application as ExpressApplication } from 'express';
 
-import 'reflect-metadata'
+import * as webPush from 'web-push';
 
 export default class Application
 {
@@ -34,7 +36,7 @@ export default class Application
 
     initiliseWebPush()
     {
-        setVapidDetails(
+        webPush.setVapidDetails(
             'https://serviceworke.rs/',
             process.env.VAPID_PUBLIC_KEY,
             process.env.VAPID_PRIVATE_KEY

@@ -9,10 +9,11 @@ import DTOValidator from '../Middlewares/DTOValidator';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { Types } from 'mongoose';
-import { sendNotification } from 'web-push';
 import { Save, Edit } from '../DTO/PostDTO';
 import { Router, Response, Request } from 'express';
 import { existsSync, unlinkSync } from 'fs';
+
+import * as webPush from 'web-push';
 
 export default class PostController implements Routable
 {
@@ -76,7 +77,7 @@ export default class PostController implements Routable
 
             if (subscriptions?.length){
                 for (const subscription of subscriptions){
-                    sendNotification(subscription, JSON.stringify({
+                    webPush.sendNotification(subscription, JSON.stringify({
                         type: 'NEW_POST',
                         message: `${user.username} has published a new post`,
                         url: `${process.env.FRONT_URL}/post/${newPost._id}`
@@ -611,18 +612,21 @@ export default class PostController implements Routable
                     throw(new Error(`Failed to updateOne User with _id ${user._id}`));
                 }
 
-                const subscriptions = await Subscription.find(
-                    { user: post.user },
-                    { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
-                );
+                if (!user._id.equals(post.user)){
 
-                if (subscriptions?.length){
-                    for (const subscription of subscriptions){
-                        sendNotification(subscription, JSON.stringify({
-                            type: 'NEW_LIKE',
-                            message: `${user.username} liked one of your posts`,
-                            url: `${process.env.FRONT_URL}/post/${post._id}`
-                        }));
+                    const subscriptions = await Subscription.find(
+                        { user: post.user },
+                        { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+                    );
+    
+                    if (subscriptions?.length){
+                        for (const subscription of subscriptions){
+                            webPush.sendNotification(subscription, JSON.stringify({
+                                type: 'NEW_LIKE',
+                                message: `${user.username} liked one of your posts`,
+                                url: `${process.env.FRONT_URL}/post/${post._id}`
+                            }));
+                        }
                     }
                 }
 

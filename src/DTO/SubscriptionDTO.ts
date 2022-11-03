@@ -5,7 +5,8 @@ import {
     IsUrl,
     IsNotEmpty,
     ValidateNested,
-    IsObject
+    IsObject,
+    IsArray
 } from 'class-validator';
 
 export class Keys
@@ -33,4 +34,13 @@ export class Save
     @ValidateNested()
     @Type(() => Keys)
     keys: Keys
+};
+
+export class Delete
+{
+    @IsDefined()
+    @IsArray()
+    @IsNotEmpty()
+    @IsString({each: true})
+    subscriptions: string;
 };
