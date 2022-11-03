@@ -11,9 +11,10 @@ import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
 import { hash, genSalt, compare } from 'bcrypt';
 import { existsSync, unlinkSync } from 'fs';
-import { sendNotification } from 'web-push';
 import { Router, Response, Request } from 'express';
 import { Save, Login, Edit } from '../DTO/UserDTO';
+
+import * as webPush from 'web-push';
 
 export default class UserController implements Routable {
     route: string;
@@ -628,7 +629,7 @@ export default class UserController implements Routable {
 
                 if (subscriptions?.length) {
                     for (const subscription of subscriptions) {
-                        sendNotification(subscription, JSON.stringify({
+                        webPush.sendNotification(subscription, JSON.stringify({
                             type: 'NEW_FOLLOWER',
                             message: `${user.username} is now following you`,
                             url: `${process.env.FRONT_URL}/user/${user._id}`

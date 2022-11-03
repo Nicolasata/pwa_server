@@ -8,9 +8,10 @@ import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
-import { sendNotification } from 'web-push';
 import { Save, Edit } from '../DTO/CommentDTO';
 import { Router, Response, Request } from 'express';
+
+import * as webPush from 'web-push';
 
 export default class CommentController implements Routable
 {
@@ -68,7 +69,7 @@ export default class CommentController implements Routable
     
                 if (subscriptions?.length){
                     for (const subscription of subscriptions){
-                        sendNotification(subscription, JSON.stringify({
+                        webPush.sendNotification(subscription, JSON.stringify({
                             type: 'NEW_COMMENT',
                             message: `${user.username} commented on one of your posts`,
                             url: `${process.env.FRONT_URL}/post/${post._id}`
