@@ -42,6 +42,7 @@ export default class SubscriptionController implements Routable
             const data = request.body;
             const newSubscription = new Subscription({
                 user: user._id,
+                session: request.sessionID,
                 ...data
             });
 

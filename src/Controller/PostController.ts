@@ -640,7 +640,7 @@ export default class PostController implements Routable
                         { user: post.user },
                         { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                     );
-    
+
                     if (subscriptions?.length){
                         const expiredSubscriptions = [];
                         for (const subscription of subscriptions){

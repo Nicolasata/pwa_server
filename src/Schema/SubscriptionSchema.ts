@@ -10,6 +10,7 @@ interface IKeys
 export interface ISubscription extends Document
 {
     user: IUser;
+    session: string;
     endpoint: string;
     keys: IKeys
 };
@@ -29,6 +30,10 @@ const SubscriptionSchema = new Schema<ISubscription>({
     user: {
         type: Schema.Types.ObjectId,
         ref: 'User',
+        required: true
+    },
+    session: {
+        type: String,
         required: true
     },
     endpoint: {

@@ -126,7 +126,7 @@ export default class UserController implements Routable {
                         }
     
                         if (!await Media.deleteOne({ _id: oldMedia._id })) {
-                            throw(new Error(`Failed to deleteById Media with _id ${oldMedia._id}`));
+                            throw(new Error(`Failed to deleteOne Media with _id ${oldMedia._id}`));
                         }
                     }
                 }
@@ -693,7 +693,7 @@ export default class UserController implements Routable {
     {
         try {
 
-            request.session.destroy((error) => {
+            request.session.destroy(async (error) => {
 
                 if (error){
                     return response
@@ -702,6 +702,8 @@ export default class UserController implements Routable {
                         errors: ['Unauthorized']
                     });
                 }
+
+                await Subscription.deleteMany({ session: request.sessionID });
 
                 response
                 .status(204)
