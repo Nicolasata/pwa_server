@@ -131,15 +131,20 @@ export default class CommentController implements Routable
             if (!comment.user._id.equals(user._id)){
                 throw(new ServerException(['Interdit'], 403));
             }
-            
+
             const data = request.body;
+            const result = {
+                _id: comment._id,
+                ...data
+            };
+            
             if (!await Comment.updateOne({_id: comment._id}, {$set: data})){
                 throw(new Error(`Failed to updateOne Comment with _id ${comment._id}`));
             }
 
             response
-            .status(204)
-            .send();
+            .status(200)
+            .send(result);
 
         } catch(error){
 

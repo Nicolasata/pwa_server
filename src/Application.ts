@@ -26,11 +26,11 @@ export default class Application
 
     async initialiseDB()
     {
-        await mongoose.connect(process.env.MONGODB_URI, {
+        await mongoose.connect(process.env.MONGO_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true
         } as ConnectOptions)
-        .then(() => console.log(`Connected to ${process.env.MONGODB_URI}`))
+        .then(() => console.log(`Connected to ${process.env.MONGO_URI}`))
         .catch((error) => console.error(error.message));
     }
 
@@ -51,7 +51,7 @@ export default class Application
             limit: '50mb'
         }));
         this.application.use(cors({
-            origin: [ 'http://localhost:3000', 'http://localhost:8080' ],
+            origin: true,
             credentials: true
         }));
         this.application.use(session({
@@ -59,7 +59,7 @@ export default class Application
             resave: false,
             saveUninitialized: false,
             store: MongoStore.create({
-                mongoUrl: process.env.MONGODB_URI,
+                mongoUrl: process.env.MONGO_URI,
                 crypto: {
                     secret: process.env.MONGO_STORE_SECRET
                 }

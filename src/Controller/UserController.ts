@@ -95,10 +95,14 @@ export default class UserController implements Routable {
                 throw(new ServerException(['Non autorisé'], 401));
             }
 
+            const result = {
+                ...data
+            };
+
             if (data.media) {
 
                 const newMedia = await Media.findById(data.media, {
-                    _id: 1, path: 1, parent: 1
+                    _id: 1, path: 1, parent: 1, url: 1, mimetype: 1
                 });
 
                 if (!newMedia) {
@@ -112,6 +116,8 @@ export default class UserController implements Routable {
                 if (newMedia.parent){
                     throw(new ServerException([`media ${data.media} est déjà utilisé`], 400));
                 }
+
+                result.media = newMedia;
 
                 if (user.media){
 
@@ -143,8 +149,8 @@ export default class UserController implements Routable {
             }
 
             response
-            .status(204)
-            .send();
+            .status(200)
+            .send(result);
 
         } catch(error){
 
