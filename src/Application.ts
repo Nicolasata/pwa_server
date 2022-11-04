@@ -45,13 +45,13 @@ export default class Application
 
     initialiseExpress()
     {
-        this.application.use('/media', express.static(join(`${resolve('./')}/public/uploads`)));
+        this.application.use('/media', express.static(join(`${resolve('./')}/public/uploads`), { maxAge: 3600000 }));
         this.application.use(cookieParser());
         this.application.use(express.json({
             limit: '50mb'
         }));
         this.application.use(cors({
-            origin : true,
+            origin: [ 'http://localhost:3000', 'http://localhost:8080' ],
             credentials: true
         }));
         this.application.use(session({
