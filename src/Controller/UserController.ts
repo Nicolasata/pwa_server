@@ -8,6 +8,7 @@ import ServerException from '../Exception/ServerException';
 import DTOValidator from '../Middlewares/DTOValidator';
 import Routable from '../Interface/Routable';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
+import NotificationType from '../Enum/notificationType';
 
 import { hash, genSalt, compare } from 'bcrypt';
 import { existsSync, unlinkSync } from 'fs';
@@ -94,10 +95,10 @@ export default class UserController implements Routable {
                 throw(new ServerException(['Unauthorized'], 401));
             }
 
-            if (data.media && user.media && !user.media._id.equals(data.media)) {
+            if (data.media) {
 
                 const newMedia = await Media.findById(data.media, {
-                    _id: 1, path: 1
+                    _id: 1, path: 1, parent: 1
                 });
 
                 if (!newMedia) {
@@ -108,24 +109,37 @@ export default class UserController implements Routable {
                     throw(new ServerException([`Media with _id ${data.media} does not exists`], 400));
                 }
 
-                const oldMedia = await Media.findById(user.media._id, {
-                    _id: 1, path: 1
-                });
+                if (newMedia.parent){
+                    throw(new ServerException([`Media with _id ${data.media} is already used`], 400));
+                }
 
-                if (oldMedia) {
+                if (user.media){
 
-                    if (existsSync(oldMedia.path)){
-                        unlinkSync(oldMedia.path);
-                    }
-
-                    if (!await Media.deleteOne({ _id: oldMedia._id })) {
-                        throw(new Error(`Failed to deleteById Media with _id ${oldMedia._id}`));
+                    const oldMedia = await Media.findById(user.media._id, {
+                        _id: 1, path: 1
+                    });
+    
+                    if (oldMedia) {
+    
+                        if (existsSync(oldMedia.path)){
+                            unlinkSync(oldMedia.path);
+                        }
+    
+                        if (!await Media.deleteOne({ _id: oldMedia._id })) {
+                            throw(new Error(`Failed to deleteById Media with _id ${oldMedia._id}`));
+                        }
                     }
                 }
             }
 
             if (!await User.updateOne({ _id: user._id }, { $set: data })) {
                 throw(new Error(`Failed to updateOne User with _id ${user._id}`));
+            }
+
+            if (data.media){
+                if (!await Media.updateOne({ _id: data.media }, { $set: {parentSchema: 'User', parent: user._id} })){
+                    throw(new Error(`Failed to updateOne Media with _id ${data.media}`));
+                }
             }
 
             response
@@ -624,16 +638,29 @@ export default class UserController implements Routable {
 
                 const subscriptions = await Subscription.find(
                     { user: targetedUser._id },
-                    { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+                    { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                 );
 
                 if (subscriptions?.length) {
-                    for (const subscription of subscriptions) {
-                        webPush.sendNotification(subscription, JSON.stringify({
-                            type: 'NEW_FOLLOWER',
-                            message: `${user.username} is now following you`,
-                            url: `${process.env.FRONT_URL}/user/${user._id}`
-                        }));
+                    const expiredSubscriptions = [];
+                    for (const subscription of subscriptions){
+                        try {
+                            await webPush.sendNotification(subscription, JSON.stringify({
+                                type: NotificationType.NEW_FOLLOW,
+                                emitter: {
+                                    _id: user._id,
+                                    username: user.username
+                                },
+                                url: `${process.env.FRONT_URL}/user/${user._id}`
+                            }));
+                        } catch {
+                            expiredSubscriptions.push(subscription._id);
+                        }
+                    }
+                    if (expiredSubscriptions.length){
+                        if (!await Subscription.deleteMany({_id: expiredSubscriptions})){
+                            throw(new Error(`Failed to deleteMany Subscription with _ids ${expiredSubscriptions.join()}`));
+                        }
                     }
                 }
 

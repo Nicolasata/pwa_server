@@ -12,6 +12,7 @@ import { Save, Edit } from '../DTO/CommentDTO';
 import { Router, Response, Request } from 'express';
 
 import * as webPush from 'web-push';
+import NotificationType from '../Enum/notificationType';
 
 export default class CommentController implements Routable
 {
@@ -64,16 +65,29 @@ export default class CommentController implements Routable
 
                 const subscriptions = await Subscription.find(
                     { user: post.user },
-                    { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+                    { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                 );
     
                 if (subscriptions?.length){
+                    const expiredSubscriptions = [];
                     for (const subscription of subscriptions){
-                        webPush.sendNotification(subscription, JSON.stringify({
-                            type: 'NEW_COMMENT',
-                            message: `${user.username} commented on one of your posts`,
-                            url: `${process.env.FRONT_URL}/post/${post._id}`
-                        }));
+                        try {
+                            await webPush.sendNotification(subscription, JSON.stringify({
+                                type: NotificationType.NEW_COMMENT,
+                                emitter: {
+                                    _id: user._id,
+                                    username: user.username
+                                },
+                                url: `${process.env.FRONT_URL}/post/${post._id}`
+                            }));
+                        } catch {
+                            expiredSubscriptions.push(subscription._id);
+                        }
+                    }
+                    if (expiredSubscriptions.length){
+                        if (!await Subscription.deleteMany({_id: expiredSubscriptions})){
+                            throw(new Error(`Failed to deleteMany Subscription with _ids ${expiredSubscriptions.join()}`));
+                        }
                     }
                 }
             }

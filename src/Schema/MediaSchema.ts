@@ -1,8 +1,11 @@
 import { Document, Schema, Types, model } from 'mongoose';
+import { IPost } from './PostSchema';
 import { IUser } from './UserSchema';
 
 export interface IMedia extends Document {
     user: IUser;
+    parentSchema: string;
+    parent: IUser|IPost;
     mimetype: string;
     filename: string;
     originalname: string;
@@ -16,6 +19,16 @@ const MediaSchema = new Schema<IMedia>({
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
+    },
+    parentSchema : {
+        type: String,
+        enum: [null, 'User', 'Post'],
+        default: null
+    },
+    parent : {
+        type: Schema.Types.ObjectId,
+        refPath: 'parentSchema',
+        default: null
     },
     mimetype: {
         type: String,

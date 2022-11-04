@@ -7,6 +7,7 @@ import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
+import NotificationType from '../Enum/notificationType';
 
 import { Types } from 'mongoose';
 import { Save, Edit } from '../DTO/PostDTO';
@@ -49,7 +50,7 @@ export default class PostController implements Routable
 
             const data = request.body;
             const media = await Media.findById(data.media, {
-                _id: 1, path: 1, url: 1, mimetype: 1
+                _id: 1, path: 1, url: 1, mimetype: 1, parent: 1
             });
 
             if (!media) {
@@ -58,6 +59,10 @@ export default class PostController implements Routable
     
             if (!existsSync(media.path)){
                 throw new ServerException([`Media with _id ${request.params.mediaId} does not exists`], 400);
+            }
+
+            if (media.parent){
+                throw(new ServerException([`Media with _id ${media._id} is already used`], 400));
             }
 
             const newPost = new Post({
@@ -70,18 +75,35 @@ export default class PostController implements Routable
                 throw(new Error('Failed to save Post'));
             }
 
+            if (!await Media.updateOne({ _id: media._id }, { $set: {parentSchema: 'Post', parent: newPost._id} })){
+                throw(new Error(`Failed to updateOne Media with _id ${media._id}`));
+            }
+
             const subscriptions = await Subscription.find(
                 { user: user.followers },
-                { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+                { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
             );
 
             if (subscriptions?.length){
+                const expiredSubscriptions = [];
                 for (const subscription of subscriptions){
-                    webPush.sendNotification(subscription, JSON.stringify({
-                        type: 'NEW_POST',
-                        message: `${user.username} has published a new post`,
-                        url: `${process.env.FRONT_URL}/post/${newPost._id}`
-                    }));
+                    try {
+                        await webPush.sendNotification(subscription, JSON.stringify({
+                            type: NotificationType.NEW_POST,
+                            emitter: {
+                                _id: user._id,
+                                username: user.username
+                            },
+                            url: `${process.env.FRONT_URL}/post/${newPost._id}`
+                        }));
+                    } catch {
+                        expiredSubscriptions.push(subscription._id);
+                    }
+                }
+                if (expiredSubscriptions.length){
+                    if (!await Subscription.deleteMany({_id: expiredSubscriptions})){
+                        throw(new Error(`Failed to deleteMany Subscription with _ids ${expiredSubscriptions.join()}`));
+                    }
                 }
             }
 
@@ -616,16 +638,29 @@ export default class PostController implements Routable
 
                     const subscriptions = await Subscription.find(
                         { user: post.user },
-                        { _id: 0, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
+                        { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                     );
     
                     if (subscriptions?.length){
+                        const expiredSubscriptions = [];
                         for (const subscription of subscriptions){
-                            webPush.sendNotification(subscription, JSON.stringify({
-                                type: 'NEW_LIKE',
-                                message: `${user.username} liked one of your posts`,
-                                url: `${process.env.FRONT_URL}/post/${post._id}`
-                            }));
+                            try {
+                                await webPush.sendNotification(subscription, JSON.stringify({
+                                    type: NotificationType.NEW_LIKE,
+                                    emitter: {
+                                        _id: user._id,
+                                        username: user.username
+                                    },
+                                    url: `${process.env.FRONT_URL}/post/${post._id}`
+                                }));
+                            } catch {
+                                expiredSubscriptions.push(subscription._id);
+                            }
+                        }
+                        if (expiredSubscriptions.length){
+                            if (!await Subscription.deleteMany({_id: expiredSubscriptions})){
+                                throw(new Error(`Failed to deleteMany Subscription with _ids ${expiredSubscriptions.join()}`));
+                            }
                         }
                     }
                 }
