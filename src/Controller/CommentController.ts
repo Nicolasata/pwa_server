@@ -36,8 +36,8 @@ export default class CommentController implements Routable
         try {
 
             const user = await User.findById(request.session.user.id, {
-                _id: 1, username: 1
-            });
+                _id: 1, username: 1, media: 1
+            }).populate('media', { url: 1, mimetype: 1 });
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
@@ -94,7 +94,11 @@ export default class CommentController implements Routable
 
             response
             .status(200)
-            .send(newComment);
+            .send({
+                _id: newComment._id,
+                text: newComment.text,
+                user: user
+            });
 
         } catch(error){
 

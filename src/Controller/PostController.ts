@@ -42,7 +42,7 @@ export default class PostController implements Routable
 
             const user = await User.findById(request.session.user.id, {
                 _id: 1, username: 1, followers: 1, following: 1, media: 1
-            }).populate('media');
+            }).populate('media', { url: 1, mimetype: 1 });
 
             if (!user){
                 throw(new ServerException(['Unauthorized'], 401));
