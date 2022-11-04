@@ -6,7 +6,7 @@ export default (request: Request, response: Response, next: NextFunction) => {
         return response
         .status(401)
         .send({
-            errors: [ 'Unauthorized' ]
+            errors: [ 'Non autorisé' ]
         });
     }
     next();

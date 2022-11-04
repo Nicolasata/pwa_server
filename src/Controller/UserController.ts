@@ -49,7 +49,7 @@ export default class UserController implements Routable {
                     { username: new RegExp(`^${data.username}$`, 'i') }
                 ]
             })){
-                throw(new ServerException(['Email or username already taken'], 200));
+                throw(new ServerException([`Email ou nom d'utilisateur non disponible`], 200));
             }
 
             data.password = await hash(
@@ -72,7 +72,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -84,7 +84,7 @@ export default class UserController implements Routable {
             const data = request.body;
 
             if (!Object.keys(data).length){
-                throw(new ServerException(['you must include one of the following parameters: username, description, media'], 400));
+                throw(new ServerException([`Vous devez inclure l'un des paramètres suivants: username, description, media`], 400));
             }
 
             const user = await User.findById(request.session.user.id, {
@@ -92,7 +92,7 @@ export default class UserController implements Routable {
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             if (data.media) {
@@ -102,15 +102,15 @@ export default class UserController implements Routable {
                 });
 
                 if (!newMedia) {
-                    throw(new ServerException([`Media with _id ${data.media} does not exists`], 400));
+                    throw(new ServerException([`media ${data.media} n'existe pas`], 400));
                 }
 
                 if (!existsSync(newMedia.path)) {
-                    throw(new ServerException([`Media with _id ${data.media} does not exists`], 400));
+                    throw(new ServerException([`media ${data.media} n'existe pas`], 400));
                 }
 
                 if (newMedia.parent){
-                    throw(new ServerException([`Media with _id ${data.media} is already used`], 400));
+                    throw(new ServerException([`media ${data.media} est déjà utilisé`], 400));
                 }
 
                 if (user.media){
@@ -151,7 +151,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -165,7 +165,7 @@ export default class UserController implements Routable {
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const medias = await Media.find(
@@ -218,7 +218,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -236,11 +236,11 @@ export default class UserController implements Routable {
             });
 
             if (!user){
-                throw(new ServerException(['Incorrect username or email'], 200));
+                throw(new ServerException([`Nom d'utilisateur ou e-mail incorrect`], 200));
             }
 
             if (!await compare(data.password, user.password)) {
-                throw(new ServerException(['Incorrect username or email'], 200));
+                throw(new ServerException([`Nom d'utilisateur ou e-mail incorrect`], 200));
             }
 
             if (user.media){
@@ -266,7 +266,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -280,7 +280,7 @@ export default class UserController implements Routable {
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const webProfile = await User.aggregate([
@@ -511,7 +511,7 @@ export default class UserController implements Routable {
             ]);
 
             if (!webProfile?.length) {
-                throw(new ServerException([`user ${request.params.username} does not exist`], 400));
+                throw(new ServerException([`user ${request.params.username} n'existe pas`], 400));
             }
 
             response
@@ -525,7 +525,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -593,7 +593,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             })
         }
     }
@@ -607,11 +607,11 @@ export default class UserController implements Routable {
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             if (user._id.equals(request.params.userId)) {
-                throw(new ServerException(['Prohibited'], 403));
+                throw(new ServerException(['Interdit'], 403));
             }
 
             const targetedUser = await User.findById(request.params.userId, {
@@ -619,7 +619,7 @@ export default class UserController implements Routable {
             });
 
             if (!targetedUser) {
-                throw(new ServerException([`user ${request.params.userId} does not exist`], 400));
+                throw(new ServerException([`user ${request.params.userId} n'existe pas`], 400));
             }
 
             const data = { isFollower: false };
@@ -684,7 +684,7 @@ export default class UserController implements Routable {
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -699,7 +699,7 @@ export default class UserController implements Routable {
                     return response
                     .status(401)
                     .send({
-                        errors: ['Unauthorized']
+                        errors: ['Non autorisé']
                     });
                 }
 
@@ -717,7 +717,7 @@ export default class UserController implements Routable {
             response
             .status(500)
             .send({
-                errors: ['Internal server error']
+                errors: ['Erreur interne du serveur']
             });
         }
     }
