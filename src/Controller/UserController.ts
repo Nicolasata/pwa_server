@@ -703,7 +703,9 @@ export default class UserController implements Routable {
                     });
                 }
 
-                await Subscription.deleteMany({ session: request.sessionID });
+                try {
+                    await Subscription.deleteMany({ session: request.sessionID });
+                } catch {}
 
                 response
                 .status(204)
