@@ -36,11 +36,11 @@ export default class CommentController implements Routable
         try {
 
             const user = await User.findById(request.session.user.id, {
-                _id: 1, username: 1
-            });
+                _id: 1, username: 1, media: 1
+            }).populate('media', { url: 1, mimetype: 1 });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const data = request.body;
@@ -49,7 +49,7 @@ export default class CommentController implements Routable
             });
 
             if (!post){
-                throw(new ServerException([`post ${data.post} does not exist`], 400));
+                throw(new ServerException([`post ${data.post} n'existe pas`], 400));
             }
 
             const newComment = new Comment({
@@ -94,14 +94,18 @@ export default class CommentController implements Routable
 
             response
             .status(200)
-            .send(newComment);
+            .send({
+                _id: newComment._id,
+                text: newComment.text,
+                user: user
+            });
 
         } catch(error){
 
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -115,17 +119,17 @@ export default class CommentController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const comment = await Comment.findById(request.params.commentId);
 
             if (!comment){
-                throw(new ServerException([`comment ${request.params.commentId} does not exist`], 400));
+                throw(new ServerException([`comment ${request.params.commentId} n'existe pas`], 400));
             }
 
             if (!comment.user._id.equals(user._id)){
-                throw(new ServerException(['Prohibited'], 403));
+                throw(new ServerException(['Interdit'], 403));
             }
             
             const data = request.body;
@@ -142,7 +146,7 @@ export default class CommentController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -154,11 +158,11 @@ export default class CommentController implements Routable
             const comment = await Comment.findById(request.params.commentId);
 
             if (!comment){
-                throw(new ServerException([`comment ${request.params.commentId} does not exist`], 400));
+                throw(new ServerException([`comment ${request.params.commentId} n'existe pas`], 400));
             }
 
             if (!comment.user._id.equals(request.session.user.id)){
-                throw(new ServerException(['Prohibited'], 403));
+                throw(new ServerException(['Interdit'], 403));
             }
 
             if (!await Comment.deleteOne({_id: comment._id})){
@@ -174,7 +178,7 @@ export default class CommentController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }

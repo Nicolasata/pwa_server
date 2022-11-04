@@ -45,11 +45,11 @@ export default class UploadController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             if (!request.file){
-                throw(new ServerException(['file should not be undefined'], 400));
+                throw(new ServerException(['Le paramètre media ne doit pas être indéfini'], 400));
             }
 
             const newMedia = new Media({
@@ -73,7 +73,7 @@ export default class UploadController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -87,7 +87,7 @@ export default class UploadController implements Routable
             });
     
             if (!media) {
-                throw new ServerException([`Media with _id ${request.params.mediaId} does not exists`], 400);
+                throw new ServerException([`media ${request.params.mediaId} n'existe pas`], 400);
             }
     
             if (existsSync(media.path)){
@@ -107,7 +107,7 @@ export default class UploadController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }

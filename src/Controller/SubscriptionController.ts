@@ -36,12 +36,13 @@ export default class SubscriptionController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const data = request.body;
             const newSubscription = new Subscription({
                 user: user._id,
+                session: request.sessionID,
                 ...data
             });
 
@@ -58,7 +59,7 @@ export default class SubscriptionController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -72,17 +73,17 @@ export default class SubscriptionController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const subscription = await Subscription.findById(request.params.subscriptionId);
 
             if (!subscription){
-                throw(new ServerException([`subscription ${request.params.subscriptionId} does not exist`], 400));
+                throw(new ServerException([`subscription ${request.params.subscriptionId} n'existe pas`], 400));
             }
 
             if (!subscription.user._id.equals(request.session.user.id)){
-                throw(new ServerException(['Prohibited'], 403));
+                throw(new ServerException(['Interdit'], 403));
             }
 
             if (!await Subscription.deleteOne({_id: subscription._id})){
@@ -98,7 +99,7 @@ export default class SubscriptionController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -112,7 +113,7 @@ export default class SubscriptionController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const data = request.body;
@@ -127,7 +128,7 @@ export default class SubscriptionController implements Routable
                 for (const subscription of subscriptions){
     
                     if (!subscription.user._id.equals(user._id)){
-                        throw(new ServerException(['Prohibited'], 403));
+                        throw(new ServerException(['Interdit'], 403));
                     }
                     subscriptionIds.push(subscription._id);
                 }
@@ -146,7 +147,7 @@ export default class SubscriptionController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -166,7 +167,7 @@ export default class SubscriptionController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }

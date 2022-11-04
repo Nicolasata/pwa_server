@@ -42,10 +42,10 @@ export default class PostController implements Routable
 
             const user = await User.findById(request.session.user.id, {
                 _id: 1, username: 1, followers: 1, following: 1, media: 1
-            }).populate('media');
+            }).populate('media', { url: 1, mimetype: 1 });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const data = request.body;
@@ -54,15 +54,15 @@ export default class PostController implements Routable
             });
 
             if (!media) {
-                throw new ServerException([`Media with _id ${request.params.mediaId} does not exists`], 400);
+                throw new ServerException([`media ${request.params.mediaId} n'existe pas`], 400);
             }
     
             if (!existsSync(media.path)){
-                throw new ServerException([`Media with _id ${request.params.mediaId} does not exists`], 400);
+                throw new ServerException([`media ${request.params.mediaId} n'existe pas`], 400);
             }
 
             if (media.parent){
-                throw(new ServerException([`Media with _id ${media._id} is already used`], 400));
+                throw(new ServerException([`media ${media._id} est déjà utilisé`], 400));
             }
 
             const newPost = new Post({
@@ -127,7 +127,7 @@ export default class PostController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -141,7 +141,7 @@ export default class PostController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const posts = await Post.aggregate([
@@ -339,7 +339,7 @@ export default class PostController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             })
         }
     }
@@ -353,7 +353,7 @@ export default class PostController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const post = await Post.aggregate([
@@ -542,7 +542,7 @@ export default class PostController implements Routable
             ]);
 
             if (!post?.length){
-                throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
+                throw(new ServerException([`post ${request.params.postId} n'existe pas`], 400));
             }
 
             response
@@ -556,7 +556,7 @@ export default class PostController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -570,17 +570,17 @@ export default class PostController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const post = await Post.findById(request.params.postId);
 
             if (!post){
-                throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
+                throw(new ServerException([`post ${request.params.postId} n'existe pas`], 400));
             }
 
             if (!post.user._id.equals(user._id)){
-                throw(new ServerException(['Prohibited'], 403));
+                throw(new ServerException(['Interdit'], 403));
             }
 
             const data = request.body;
@@ -597,7 +597,7 @@ export default class PostController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -611,13 +611,13 @@ export default class PostController implements Routable
             });
 
             if (!user){
-                throw(new ServerException(['Unauthorized'], 401));
+                throw(new ServerException(['Non autorisé'], 401));
             }
 
             const post = await Post.findById(request.params.postId);
 
             if (!post){
-                throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
+                throw(new ServerException([`post ${request.params.postId} n'existe pas`], 400));
             }
 
             const data = { isLiked: false };
@@ -640,7 +640,7 @@ export default class PostController implements Routable
                         { user: post.user },
                         { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                     );
-    
+
                     if (subscriptions?.length){
                         const expiredSubscriptions = [];
                         for (const subscription of subscriptions){
@@ -685,7 +685,7 @@ export default class PostController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
@@ -697,11 +697,11 @@ export default class PostController implements Routable
             const post = await Post.findById(request.params.postId).populate('media');
 
             if (!post){
-                throw(new ServerException([`post ${request.params.postId} does not exist`], 400));
+                throw(new ServerException([`post ${request.params.postId} n'existe pas`], 400));
             }
 
             if (!post.user._id.equals(request.session.user.id)){
-                throw(new ServerException(['Prohibited'], 403));
+                throw(new ServerException(['Interdit'], 403));
             }
 
             if (post.media){
@@ -728,7 +728,7 @@ export default class PostController implements Routable
             response
             .status(error instanceof ServerException ? error.httpCode : 500)
             .send({
-                errors: error instanceof ServerException ? error.messages : ['Internal server error']
+                errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
         }
     }
