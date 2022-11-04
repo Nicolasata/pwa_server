@@ -2,7 +2,6 @@ import {
     IsString,
     IsNotEmpty,
     IsDefined,
-    IsBoolean
 } from 'class-validator';
 
 export class Save
