@@ -584,13 +584,18 @@ export default class PostController implements Routable
             }
 
             const data = request.body;
+            const result = {
+                _id: post._id,
+                ...data
+            };
+
             if (!await Post.updateOne({_id: post._id}, {$set: data})){
                 throw(new Error(`Failed to updateOne Post with _id ${post._id}`));
             }
 
             response
-            .status(204)
-            .send();
+            .status(200)
+            .send(result);
 
         } catch(error){
 
