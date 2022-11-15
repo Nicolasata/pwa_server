@@ -12,7 +12,7 @@ import { Save, Edit } from '../DTO/CommentDTO';
 import { Router, Response, Request } from 'express';
 
 import * as webPush from 'web-push';
-import NotificationType from '../Enum/notificationType';
+import NotificationType from '../Enum/NotificationType';
 
 export default class CommentController implements Routable
 {
