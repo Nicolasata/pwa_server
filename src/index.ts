@@ -5,6 +5,7 @@ import PostController from './Controller/PostController'
 import CommentController from './Controller/CommentController'
 import UploadController from './Controller/UploadController'
 import { UserSession } from './Session'
+import dotenv from 'dotenv'
 
 declare module 'express-session' {
     interface SessionData {
@@ -20,4 +21,5 @@ const application = new Application([
     new UploadController
 ]);
 
+dotenv.config();
 application.start();
