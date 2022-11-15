@@ -7,7 +7,7 @@ import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
-import NotificationType from '../Enum/notificationType';
+import NotificationType from '../Enum/NotificationType';
 
 import { Types } from 'mongoose';
 import { Save, Edit } from '../DTO/PostDTO';
