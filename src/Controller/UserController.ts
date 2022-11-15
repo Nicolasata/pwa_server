@@ -8,7 +8,7 @@ import ServerException from '../Exception/ServerException';
 import DTOValidator from '../Middlewares/DTOValidator';
 import Routable from '../Interface/Routable';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
-import NotificationType from '../Enum/notificationType';
+import NotificationType from '../Enum/NotificationType';
 
 import { hash, genSalt, compare } from 'bcrypt';
 import { existsSync, unlinkSync } from 'fs';
