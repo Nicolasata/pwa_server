@@ -647,7 +647,7 @@ export default class UserController implements Routable {
                     { _id: 1, endpoint: 1, 'keys.auth': 1, 'keys.p256dh': 1 }
                 );
 
-                if (subscriptions?.length) {
+                if (subscriptions?.length) {    
                     const expiredSubscriptions = [];
                     for (const subscription of subscriptions){
                         try {
@@ -657,7 +657,7 @@ export default class UserController implements Routable {
                                     _id: user._id,
                                     username: user.username
                                 },
-                                url: `${process.env.FRONT_URL}/user/${user._id}`
+                                url: `${process.env.FRONT_URL}/user/${user.username}`
                             }));
                         } catch {
                             expiredSubscriptions.push(subscription._id);
