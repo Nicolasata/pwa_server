@@ -4,6 +4,7 @@ import { Post } from '../Schema/PostSchema';
 import { Subscription } from '../Schema/SubscriptionSchema';
 import { Comment } from '../Schema/CommentSchema';
 
+import UploadController from './UploadController';
 import ServerException from '../Exception/ServerException';
 import DTOValidator from '../Middlewares/DTOValidator';
 import Routable from '../Interface/Routable';
@@ -84,7 +85,7 @@ export default class UserController implements Routable {
             const data = request.body;
 
             if (!Object.keys(data).length){
-                throw(new ServerException([`Vous devez inclure l'un des paramètres suivants: username, description, media`], 400));
+                throw(new ServerException([`Vous devez inclure l'un des paramètres suivants: username, description, media, mediaStr`], 400));
             }
 
             const user = await User.findById(request.session.user.id, {
@@ -119,32 +120,38 @@ export default class UserController implements Routable {
 
                 result.media = newMedia;
 
-                if (user.media){
+            } else if (data.mediaStr) {
 
-                    const oldMedia = await Media.findById(user.media._id, {
-                        _id: 1, path: 1
-                    });
-    
-                    if (oldMedia) {
-    
-                        if (existsSync(oldMedia.path)){
-                            unlinkSync(oldMedia.path);
-                        }
-    
-                        if (!await Media.deleteOne({ _id: oldMedia._id })) {
-                            throw(new Error(`Failed to deleteOne Media with _id ${oldMedia._id}`));
-                        }
+                const uploadController = new UploadController();
+                result.media = await uploadController.saveBase64(data.mediaStr, user._id);
+                delete (result.mediaStr);
+            }
+
+            if (result.media && user.media){
+
+                const oldMedia = await Media.findById(user.media._id, {
+                    _id: 1, path: 1
+                });
+
+                if (oldMedia) {
+
+                    if (existsSync(oldMedia.path)){
+                        unlinkSync(oldMedia.path);
+                    }
+
+                    if (!await Media.deleteOne({ _id: oldMedia._id })) {
+                        throw(new Error(`Failed to deleteOne Media with _id ${oldMedia._id}`));
                     }
                 }
             }
 
-            if (!await User.updateOne({ _id: user._id }, { $set: data })) {
+            if (!await User.updateOne({ _id: user._id }, { $set: result })) {
                 throw(new Error(`Failed to updateOne User with _id ${user._id}`));
             }
 
-            if (data.media){
-                if (!await Media.updateOne({ _id: data.media }, { $set: {parentSchema: 'User', parent: user._id} })){
-                    throw(new Error(`Failed to updateOne Media with _id ${data.media}`));
+            if (result.media){
+                if (!await Media.updateOne({ _id: result.media._id }, { $set: {parentSchema: 'User', parent: user._id} })){
+                    throw(new Error(`Failed to updateOne Media with _id ${result.media._id}`));
                 }
             }
 

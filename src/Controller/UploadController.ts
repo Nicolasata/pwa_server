@@ -3,10 +3,13 @@ import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import IsAuthenticated from '../Middlewares/IsAuthenticated';
 
-import { Media } from '../Schema/MediaSchema';
+import { IMedia, Media } from '../Schema/MediaSchema';
 import { Router, Response, Request } from 'express';
-import { existsSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { User } from '../Schema/UserSchema';
+import { join, resolve } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
 import multer, { diskStorage } from 'multer';
 
 export default class UploadController implements Routable
@@ -75,6 +78,49 @@ export default class UploadController implements Routable
             .send({
                 errors: error instanceof ServerException ? error.messages : ['Erreur interne du serveur']
             });
+        }
+    }
+
+    saveBase64 = async (str: string, userId: string): Promise<IMedia> =>
+    {
+        try {
+
+            const types = {
+                '/': 'jpeg',
+                'i': 'png',
+                'R': 'gif',
+                'U': 'webp'
+            };
+
+            str = str.replace(/^data:image\/\w+;base64,/, '');
+
+            if (!types[str[0]]){
+                throw(new ServerException(['Type de fichier non supporté'], 400));
+            }
+
+            const filename = `${uuidv4()}.${types[str[0]]}`;
+            const uploadDir = join(`${resolve('./')}/public/uploads/`);
+            const buffer = Buffer.from(str, 'base64');
+            writeFileSync(`${uploadDir}${filename}`, buffer);
+    
+            const newMedia = new Media({
+                user: userId,
+                url: `${process.env.SERVER_URL}/media/${filename}`,
+                mimetype: `image/${types[str[0]]}`,
+                filename: filename,
+                originalname: filename,
+                path: `public\\uploads\\${filename}`,
+                size: buffer.length
+            });
+    
+            if (!await newMedia.save()){
+                throw(new Error('Failed to save Media'));
+            }
+
+            return (newMedia);
+
+        } catch(error) {
+            throw(new Error('Failed to saveBase64 Media'));
         }
     }
 

@@ -62,4 +62,9 @@ export class Edit
     @IsString()
     @IsNotEmpty()
     media: string;
+
+    @IsOptional()
+    @IsString()
+    @IsNotEmpty()
+    mediaStr: string;
 };

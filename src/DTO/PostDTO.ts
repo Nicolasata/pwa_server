@@ -2,14 +2,20 @@ import {
     IsString,
     IsNotEmpty,
     IsDefined,
+    IsOptional,
 } from 'class-validator';
 
 export class Save
 {
-    @IsDefined()
+    @IsOptional()
     @IsString()
     @IsNotEmpty()
     media: string;
+
+    @IsOptional()
+    @IsString()
+    @IsNotEmpty()
+    mediaStr: string;
 
     @IsDefined()
     @IsString()

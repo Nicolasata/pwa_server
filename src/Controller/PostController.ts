@@ -3,6 +3,7 @@ import { User } from '../Schema/UserSchema';
 import { Media } from '../Schema/MediaSchema';
 import { Subscription } from '../Schema/SubscriptionSchema';
 
+import UploadController from './UploadController';
 import ServerException from '../Exception/ServerException';
 import Routable from '../Interface/Routable';
 import DTOValidator from '../Middlewares/DTOValidator';
@@ -40,6 +41,12 @@ export default class PostController implements Routable
     {
         try {
 
+            const data = request.body;
+
+            if (!data.media && !data.mediaStr){
+                throw(new ServerException([`Vous devez inclure l'un des paramètres suivants: media, mediaStr`], 400));
+            }
+
             const user = await User.findById(request.session.user.id, {
                 _id: 1, username: 1, followers: 1, following: 1, media: 1
             }).populate('media', { url: 1, mimetype: 1 });
@@ -48,21 +55,30 @@ export default class PostController implements Routable
                 throw(new ServerException(['Non autorisé'], 401));
             }
 
-            const data = request.body;
-            const media = await Media.findById(data.media, {
-                _id: 1, path: 1, url: 1, mimetype: 1, parent: 1
-            });
+            let media = null;
 
-            if (!media) {
-                throw new ServerException([`media ${request.params.mediaId} n'existe pas`], 400);
-            }
+            if (data.media){
+
+                media = await Media.findById(data.media, {
+                    _id: 1, path: 1, url: 1, mimetype: 1, parent: 1
+                });
     
-            if (!existsSync(media.path)){
-                throw new ServerException([`media ${request.params.mediaId} n'existe pas`], 400);
-            }
+                if (!media) {
+                    throw new ServerException([`media ${data.media} n'existe pas`], 400);
+                }
+        
+                if (!existsSync(media.path)){
+                    throw new ServerException([`media ${data.media} n'existe pas`], 400);
+                }
+    
+                if (media.parent){
+                    throw(new ServerException([`media ${media._id} est déjà utilisé`], 400));
+                }
 
-            if (media.parent){
-                throw(new ServerException([`media ${media._id} est déjà utilisé`], 400));
+            } else {
+
+                const uploadController = new UploadController();
+                media = await uploadController.saveBase64(data.mediaStr, user._id);
             }
 
             const newPost = new Post({
